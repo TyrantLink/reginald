@@ -163,6 +163,7 @@ class command(commands.Cog):
     if type(data['servers'][str(ctx.guild.id)]['config'][variable]) == type(value): data['servers'][str(ctx.guild.id)]['config'][variable] = value
     else: await ctx.send('type error'); return
     await ctx.send(f"successfully set {variable} to {data['servers'][str(ctx.guild.id)]['config'][variable]}")
+    if variable == 'enableTalkingStick': await ctx.send('remember to do /sticc setup to enable the talking sticc.')
   @cog_ext.cog_slash(name='reload',description='reloads save files')
   @is_owner()
   async def reloadSaves(self,ctx:SlashContext):
