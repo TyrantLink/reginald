@@ -6,9 +6,9 @@ from time import time,sleep
 from pickle import load,dump
 from datetime import datetime
 from dotenv import load_dotenv
+# from serverConnection import client
 from mcstatus import MinecraftServer
 from discord.ext import commands,tasks
-# from serverConnection import client
 from discord_slash import cog_ext,SlashCommand,SlashContext
 from discord.ext.commands import has_permissions,MissingPermissions,is_owner
 
@@ -23,10 +23,10 @@ def setupLogger(name,log_file,level=logging.WARNING):
   logger.addHandler(fileHandler)
   return logger
 load_dotenv()
-with open('save.json','r') as save: saveLoad = json.loads(save.read())
-configVariables = saveLoad['config']
-dynamicVariables = saveLoad['dynamic']
+mainDirectory = os.getcwd()
+data = json.loads(open('save.json','r').read())
 staticVariables = {
+  'msgToConsole':True,
   'serverStarted':False,
   'sizes':{2:'MBs',3:'GBs'},
   'token':os.getenv('token'),
@@ -45,30 +45,24 @@ staticVariables = {
   }
 qa = json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']
 servers = json.loads(open('servers.json','r').read())
-for var in dynamicVariables: globals()[var] = dynamicVariables[var]
 for var in staticVariables: globals()[var] = staticVariables[var]
-for var in configVariables: globals()[var] = configVariables[var]
-async def sticcLoad():
-  for guild in dynamicVariables[sticcServers]:
-    globals()['tsRoles'].update({guild:{tsRole:discord.Object(guild['tsRole'])}})
-    globals()['tsChannels'].update({guild:{tsChannel:await client.fetch_channel(guild['tsChannel'])}})
 
 slash = SlashCommand(client)
 mc = MCRcon(mcRconHost,mcRconPassword,mcRconPort)
 
 def adminOrOwner(): return (is_owner() or has_permissions(administrator=True))
 def modOrOwner(): return (is_owner() or has_permissions(manage_server=True))
-def save(): json.dump({'config':configVariables,'dynamic':dynamicVariables},open('save.json','w+'),indent=2)
+def save(): json.dump(data,open('save.json','w+'),indent=2)
 
 class serverMcstarter(commands.Cog):
   def __init__(self,client): self.client = client
   @cog_ext.cog_subcommand(base='minecraft',name='start',description='starts a minecraft server.')
   async def start(self,ctx:SlashContext,server):
+    if serverStarted: return
     try: os.chdir(servers[server]['directory'])
     except: await ctx.send('server name error')
-    if serverStarted: return
     os.startfile('botStart.bat')
-    os.chdir(r'S:\ProgrammingProjects\&DiscordBots\reginald')
+    os.chdir(mainDirectory)
     await ctx.send('okay, it\'s starting.')
     for i in range(maxServerStartTime):
       try: MinecraftServer.lookup(serverQuery).query().players.online; break
@@ -96,7 +90,7 @@ class serverMcstarter(commands.Cog):
         if i=='directory' or i=='isModded' or i=='mods': continue
         info.append(f'{i}: {servers[server][i]}')
     except: await ctx.send('server name error')
-    info.append('modpack: vanilla') if servers[server]['isModded']=='no' else info.append(f'modpack: https://mods.nutt.dev/{server}')
+    info.append('modpack: vanilla') if servers[server]['isModded']==False else info.append(f'modpack: https://mods.nutt.dev/{server}')
     info.append(f'size: {nonAsync.getServerSize(server)}')
     await ctx.send(embed=discord.Embed(title=f'{server} info:',description='\n'.join(info),color=0x69ff69))
   @cog_ext.cog_subcommand(base='minecraft',name='online',description='returns list of players online.')
@@ -114,32 +108,32 @@ class theDisciplineSticc(commands.Cog):
     while client.is_ready:
         await asyncio.sleep(60)
         if datetime.now().strftime("%H:%M") == '09:00':
-          try:
-            for guild in dynamicVariables['sticcServers']: await general.rollTalkingStick(guild)
-          except: await (discord.utils.get(guild.channels,name='general')).send('error: talking stick has not been set up in this server.')
+          for guild in data['servers']:
+            if guild['tsRole'] == 0 or guild['tsChannel'] == 0: await (discord.utils.get((await client.fetch_guild(guild)).channels,name='general')).send('error in talking stick. please redo setup.'); continue
+            if guild['config']['enableTalkingStick']: await general.rollTalkingStick(guild)
           nonAsync.messageBackup()
   @cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc.')
   @adminOrOwner()
   async def setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
-    tsRole = role; tsChannel = channel
-    dynamicVariables.update({'sticcServers':{ctx.guild_id:{'tsRole':tsRole.id,'tsChannel':tsChannel.id}}})
-    await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'role: <@&{tsRole.id}>\n\nchannel: <#{tsChannel.id}>',color=0x69ff69))
+    data['servers'][str(ctx.guild.id)]['tsRole'] = role.id
+    data['servers'][str(ctx.guild.id)]['tsChannel'] = channel.id
+    await ctx.send(embed=discord.Embed(title='Setup Complete.',descrition=f'role: <@&{role.id}>\n\nchannel: <#{channel.id}>',color=0x69ff69))
   @cog_ext.cog_subcommand(base='sticc',name='reroll',description='reroll the talking sticc')
   @adminOrOwner()
   async def reroll(self,ctx:SlashContext): await general.rollTalkingStick(ctx.guild.id)
   @cog_ext.cog_subcommand(base='leaderboard',name='sticcs',description='leaderboard of how many times someone has had the talking sticc')
   async def leaderboard_sticcs(self,ctx:SlashContext):
     names = []
-    for member in dynamicVariables['sticcServers'][str(ctx.guild.id)]['sticcs']:
-      if member not in dynamicVariables['idNameCache']: dynamicVariables['idNameCache'].update({member:(await client.fetch_user(member)).name})
-      names.append(dynamicVariables['idNameCache'][member])
+    for member in data['servers'][str(ctx.guild.id)]['tsLeaderboard']:
+      if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
+      names.append(data['variables']['idNameCache'][member])
     await ctx.send(embed=discord.Embed(title='Minecraft Servers:',description='\n'.join(names),color=0x69ff69))
   @cog_ext.cog_subcommand(base='sticc',name='active',description='lists members who have been active in the past day.')
   async def list_active(self,ctx:SlashContext):
     active = []
-    for member in dynamicVariables['sticcServers'][str(ctx.guild.id)]['activeMembers']:
-      if member not in dynamicVariables['idNameCache']: dynamicVariables['idNameCache'].update({member:(await client.fetch_user(member)).name})
-      active.append(dynamicVariables['idNameCache'][member])
+    for member in data['servers'][str(ctx.guild.id)]['activeMembers']:
+      if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
+      active.append(data['variables']['idNameCache'][member])
     await ctx.send(embed=discord.Embed(title='Active Members:',description='\n'.join(active),color=0x69ff69))
 class command(commands.Cog):
   global godExempt
@@ -148,35 +142,27 @@ class command(commands.Cog):
   async def hello_reginald(self,ctx:SlashContext): await ctx.send(file=discord.File('reginald.png'))
   @cog_ext.cog_slash(name='clearidcache',description='clears ID cache variable')
   @is_owner()
-  async def clearIDcache(self,ctx:SlashContext): dynamicVariables['idNameCache'] = {}; await ctx.send('successfully cleared ID cache'); save()
+  async def clearIDcache(self,ctx:SlashContext): data['variables']['idNameCache'] = {}; await ctx.send('successfully cleared ID cache'); save()
   @cog_ext.cog_slash(name='config',description='set variables for the bot')
   @is_owner()
   async def config(self,ctx:SlashContext,variable,value):
     if variable not in configVariables: await ctx.send('variable error'); return
-    realVar = globals()[variable]
-    if value in valueConverter and type(realVar) == bool: value = valueConverter[value]
+    if value in valueConverter: value = valueConverter[value]
     else:
       try: value = int(value)
       except: await ctx.send('value error'); return
-    if type(realVar) == type(value): globals()[variable] = value
+    if type(data['servers'][str(ctx.guild.id)]['config']) == type(value): data['servers'][str(ctx.guild.id)]['config'] = value
     else: await ctx.send('type error'); return
-    await ctx.send(f'successfully set {variable} to {globals()[variable]}')
+    await ctx.send(f"successfully set {variable} to {data['servers'][str(ctx.guild.id)]['config']}")
   @cog_ext.cog_slash(name='reload',description='reloads save files')
   @is_owner()
   async def reloadSaves(self,ctx:SlashContext):
     qa = json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']
     servers = json.loads(open('servers.json','r').read())
-    configVariables = saveLoad['config']
-    dynamicVariables = saveLoad['dynamic']
-    for var in dynamicVariables: globals()[var] = dynamicVariables[var]
-    for var in staticVariables: globals()[var] = staticVariables[var]
-    for var in configVariables: globals()[var] = configVariables[var]
     await ctx.send('reload successful.')
   @cog_ext.cog_subcommand(base='list',name='config',description='list config variables.')
   async def list_config(self,ctx:SlashContext):
-    config = []
-    for i in configVariables: config.append(f'{i}:{configVariables[i]}')
-    await ctx.send(embed=discord.Embed(title='Config:',description='\n'.join(config),color=0x69ff69))
+    await ctx.send(embed=discord.Embed(title='Config:',description='\n'.join([f"{i}:{data['servers'][str(ctx.guild.id)]['config'][i]}" for i in data['servers'][str(ctx.guild.id)]['config']]),color=0x69ff69))
   @cog_ext.cog_slash(name='exec',description='execute any python command on host computer.')
   @is_owner()
   async def execute(ctx,*function):
@@ -192,13 +178,13 @@ class command(commands.Cog):
     except: await ctx.send(embed=discord.Embed(title='rolls:',description='total rolls above character limit.',color=0x69ff69).add_field(name='Result:',value=result))
   @cog_ext.cog_subcommand(base='leaderboard',name='messages',description='leaderboard of total messages sent.')
   async def leaderboard_messages(self,ctx:SlashContext):
-    dynamicVariables['messages'] = {key: value for key, value in sorted(dynamicVariables['messages'].items(), key=lambda item: item[1],reverse=True)}
+    data['variables']['messages'] = {key: value for key, value in sorted(data['variables']['messages'].items(), key=lambda item: item[1],reverse=True)}
     names = []
     index = 1
-    for member in dynamicVariables['messages']:
-      if member not in dynamicVariables['idNameCache']: dynamicVariables['idNameCache'].update({member:(await client.fetch_user(member)).name})
+    for member in data['variables']['messages']:
+      if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
       rank = str(index)+("th" if 4<=index%100<=20 else {1:"st",2:"nd",3:"rd"}.get(index%10, "th")); index += 1
-      names.append(f'{rank} - {dynamicVariables["idNameCache"][member]}: {dynamicVariables["messages"][member]}')
+      names.append(f'{rank} - {data["variables"]["idNameCache"][member]}: {data["variables"]["idNameCache"][member]}')
     await ctx.send(embed=discord.Embed(title='Messages:',description='\n'.join(names),color=0x69ff69))
   @cog_ext.cog_subcommand(base='get',name='avatar',description='returns the avatar of given user')
   async def get_avatar(self,ctx:SlashContext,user:discord.User,resolution=512): await ctx.send(str(user.avatar_url_as(format="png",size=resolution)))
@@ -216,7 +202,7 @@ class command(commands.Cog):
   @cog_ext.cog_subcommand(base='reginald',name='info',description='lists info on reginald.')
   async def reginald_info(self,ctx:SlashContext):
     embed = discord.Embed(title='Reginald Info:',description="""a fucked up mash up of the server mcstarter, the discipline sticc, and the mcfuck.\n
-    please submit any issues to https://github.com/TyrantLink/discordBots/issues/\n
+    please submit any issues to https://github.com/TyrantLink/reginald/issues/\n
     thank you, all hail reginald.""",color=0x69ff69)
     await ctx.send(embed=embed)
 class msgLogger(commands.Cog):
@@ -224,7 +210,7 @@ class msgLogger(commands.Cog):
   @commands.Cog.listener()
   async def on_message(self,message):
     nonAsync.logMessages(message,'s',' - image or embed') if message.content == "" else nonAsync.logMessages(message,'s')
-    nonAsync.messageCount(message)
+    nonAsync.messageCount(str(message.author.id), str(message.guild.id))
   @commands.Cog.listener()
   async def on_message_delete(self,message):
     if message.author == client.user and re.sub('​','',message.content) in userqa:
@@ -240,13 +226,10 @@ class msgLogger(commands.Cog):
     nonAsync.logMessages(message_before,'e',message_after,' - image or embed') if message_after.content == "" else nonAsync.logMessages(message_before,'e',message_after)
 class nonAsync(commands.Cog):
   def __init__(self,client): self.client = client
-  def messageCount(ctx):
-    userID = str(ctx.author.id)
-    guildID = str(ctx.guild.id)
-    messages.update({userID:(messages[userID])+1}) if userID in messages else messages.update({userID:1})
-    # if userID not in dynamicVariables['sticcServers'][guildID]['activeMembers']:
-    #   dynamicVariables['sticcServers'][guildID]['activeMembers'].append(userID)
-    #   dynamicVariables.update({'sticcServers':{guildID:{'activeMembers':dynamicVariables['sticcServers'][guildID]['activeMembers']}}})
+  def messageCount(author,guild):
+    if author in data['variables']['messages']: data['variables']['messages'][author] += 1
+    else: data['variables']['messages'].update({author:1})
+    if author not in data['servers'][guild]['activeMembers']: data['servers'][guild]['activeMembers'].append(author)
     save()
   def logMessages(ctx,type,ctx2='',ext=''):
     match type:
@@ -281,50 +264,41 @@ class general(commands.Cog):
     outputLog.warning(f"{client.user.name} connected to Discord!")
     print(f"{client.user.name} connected to Discord!\n")
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='the collective one.'))
-    await slash.sync_all_commands()
+    # await slash.sync_all_commands()
   @commands.Cog.listener()
-  async def on_guild_join(self,guild): await (discord.utils.get(guild.channels,name='general')).send(file=discord.File('reginald.png'))
+  async def on_guild_join(self,guild):
+    await (discord.utils.get(guild.channels,name='general')).send(file=discord.File('reginald.png'))
+    data['servers'][str(guild.id)] = data['defaultServer']
   @commands.Cog.listener()
   async def on_message(self,message):
-    if message.author.bot: return
-    globals()['lastChannel'] = message.channel
-    if enableAutoResponses: await general.autoResponse(message)
+    if data['servers'][str(message.guild.id)]['config']['enableAutoResponses'] and not message.author.bot: await general.autoResponse(message)
   async def autoResponse(ctx):
     if ctx.author.bot: return
-    if ctx.author.id == client.owner_id and ctx.content in userqa and not godExempt: await ctx.channel.send(userqa[ctx.content]); return
+    if ctx.author.id == client.owner_id and ctx.content in userqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(userqa[ctx.content]); return
     if ctx.author.id != client.owner_id and ctx.content in userqa: await ctx.channel.send(userqa[ctx.content]); return
-    if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content]); return
-  async def rollTalkingStick(guild_id):
-    sticcs = dynamicVariables['sticcServers'][str(ctx.guild.id)]['sticcs']
-    rand = dynamicVariables['sticcServers'][guild_id]['activeMembers'][randint(0,len(dynamicVariables['sticcServers'][guild_id]['activeMembers'])-1)]
-    oldStik = await server.fetch_member(currentStik)
-    newStik = await server.fetch_member(rand)
-    while rand == currentStik or (newStik.bot and oldStik.bot):
-      rand = dynamicVariables['sticcServers'][guild_id]['activeMembers'][randint(0,len(dynamicVariables['sticcServers'][guild_id]['activeMembers'])-1)]
+    if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
+  async def rollTalkingStick(guild:str):
+    tsRole = discord.Object(data['servers'][guild]['tsRole'])
+    while True:
+      rand = data['servers'][guild]['activeMembers'][randint(0,len(data['servers'][guild]['activeMembers'])-1)]
       oldStik = await server.fetch_member(currentStik)
       newStik = await server.fetch_member(rand)
+      if not (rand == currentStik or (newStik.bot and oldStik.bot)): break
     await oldStik.remove_roles(tsRole)
     await newStik.add_roles(tsRole)
-    await tsChannel.send(f'congrats <@!{rand}>, you have the talking stick.')
+    await (await client.fetch_channel(data['servers'][guild]['tsChannel'])).send(f'congrats <@!{rand}>, you have the talking stick.')
     currentStik = rand
-    sticcs.update({currentStik:(sticcs[currentStik])+1}) if currentStik in sticcs else sticcs.update({currentStik:1})
-    dynamicVariables['sticcServers'][str(ctx.guild.id)]['activeMembers'] = []
+    if currentStik in data['servers'][guild]['tsLeaderboard']: data['servers'][guild]['tsLeaderboard'][currentStik] += 1
+    else: data['servers'][guild]['tsLeaderboard'].update({currentStik:1})
+    data['servers'][guild]['activeMembers'] = []
     save()
 @client.command(name='help')
 async def redirectToSlash(ctx): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
 async def on_command_error(ctx,error): await ctx.send(f'error: {error}'); pass
 
-async def sendMessage():
-  await client.wait_until_ready()
-  while client.is_ready:
-    msg = input('message: ')
-    await lastChannel.send(msg)
-
-
 # client.loop.create_task(theDisciplineSticc.sticcLoop())
 # client.add_cog(theDisciplineSticc(client))
-# client.loop.create_task(sendMessage())
 client.add_cog(serverMcstarter(client))
 client.add_cog(msgLogger(client))
 client.add_cog(nonAsync(client))
