@@ -24,7 +24,8 @@ def setupLogger(name,log_file,level=logging.WARNING):
   return logger
 load_dotenv()
 mainDirectory = os.getcwd()
-data = json.loads(open('save.json','r').read())
+try: data = json.loads(open('save.json','r').read())
+except: data = {"defaultServer":{"config":{"godExempt":True,"enableAutoResponses":True,"enableTalkingStick":True,"maxServerStartTime":90,"maxRoll":16384},"activeMembers":[],"tsLeaderboard":{},"tsRole":0,"tsChannel":0,"currentStik":0},"variables":{"idNameCache":{},"messages":{}}"servers":{}}
 staticVariables = {
   'msgToConsole':True,
   'serverStarted':False,
@@ -250,7 +251,7 @@ class nonAsync(commands.Cog):
     if author in data['variables']['messages']: data['variables']['messages'][author] += 1
     else: data['variables']['messages'].update({author:1})
     if guild != None:
-      if author not in data['servers'][guild]['activeMembers'] and data['servers'][guild]['config']['enableTalkingStick']: data['servers'][guild]['activeMembers'].append(author)
+      if author not in data['servers'][guild]['activeMembers'] and data['servers'][guild]['config']['enableTalkingStick']: data['servers'][guild]['activeMembers'].append(int(author))
     save()
   def messageBackup(): copytree(f'{os.getcwd()}\\logs', f'{os.getcwd()}\\backups\\logs\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S")}')
   def getServerSize(server):
