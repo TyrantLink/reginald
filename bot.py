@@ -64,7 +64,7 @@ class serverMcstarter(commands.Cog):
     os.startfile('botStart.bat')
     os.chdir(mainDirectory)
     await ctx.send('okay, it\'s starting.')
-    for i in range(maxServerStartTime):
+    for i in range(data['servers'][str(ctx.guild.id)]['config']['maxServerStartTime']):
       try: MinecraftServer.lookup(serverQuery).query().players.online; break
       except: sleep(1)
     else: await ctx.send('error starting server.'); return
@@ -80,7 +80,7 @@ class serverMcstarter(commands.Cog):
   async def cmd(self,ctx:SlashContext,command):
     try: mc.connect(); response = mc.command(command); mc.disconnect()
     except: await ctx.send('failed to send command'); return
-    try: await ctx.send(response)
+    try: await ctx.send(re.sub('§.','',response))
     except: pass
   @cog_ext.cog_subcommand(base='minecraft',name='info',description='lists info on given minecraft server.')
   async def list_info(self,ctx:SlashContext,server):
@@ -115,21 +115,29 @@ class theDisciplineSticc(commands.Cog):
   @cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc.')
   @adminOrOwner()
   async def setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
+    if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send('THE TALKING STICK IS NOT ENABLED ON THIS SERVER!'); return
     data['servers'][str(ctx.guild.id)]['tsRole'] = role.id
     data['servers'][str(ctx.guild.id)]['tsChannel'] = channel.id
-    await ctx.send(embed=discord.Embed(title='Setup Complete.',descrition=f'role: <@&{role.id}>\n\nchannel: <#{channel.id}>',color=0x69ff69))
+    await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'role: <@&{role.id}>\n\nchannel: <#{channel.id}>',color=0x69ff69))
   @cog_ext.cog_subcommand(base='sticc',name='reroll',description='reroll the talking sticc')
   @adminOrOwner()
-  async def reroll(self,ctx:SlashContext): await general.rollTalkingStick(ctx.guild.id)
+  async def reroll(self,ctx:SlashContext):
+    if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send('THE TALKING STICK IS NOT ENABLED ON THIS SERVER!'); return
+    await general.rollTalkingStick(str(ctx.guild.id))
   @cog_ext.cog_subcommand(base='leaderboard',name='sticcs',description='leaderboard of how many times someone has had the talking sticc')
   async def leaderboard_sticcs(self,ctx:SlashContext):
+    if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send('THE TALKING STICK IS NOT ENABLED ON THIS SERVER!'); return
+    data['servers'][str(ctx.guild.id)]['tsLeaderboard'] = {key: value for key, value in sorted(data['servers'][str(ctx.guild.id)]['tsLeaderboard'].items(), key=lambda item: item[1],reverse=True)}
     names = []
+    index = 1
     for member in data['servers'][str(ctx.guild.id)]['tsLeaderboard']:
       if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
-      names.append(data['variables']['idNameCache'][member])
-    await ctx.send(embed=discord.Embed(title='Minecraft Servers:',description='\n'.join(names),color=0x69ff69))
+      rank = str(index)+("th" if 4<=index%100<=20 else {1:"st",2:"nd",3:"rd"}.get(index%10, "th")); index += 1
+      names.append(f"{rank} - {data['variables']['idNameCache'][member]}: {data['servers'][str(ctx.guild.id)]['tsLeaderboard'][member]}")
+    await ctx.send(embed=discord.Embed(title='Sticc Leaderboard:',description='\n'.join(names),color=0x69ff69))
   @cog_ext.cog_subcommand(base='sticc',name='active',description='lists members who have been active in the past day.')
   async def list_active(self,ctx:SlashContext):
+    if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send('THE TALKING STICK IS NOT ENABLED ON THIS SERVER!'); return
     active = []
     for member in data['servers'][str(ctx.guild.id)]['activeMembers']:
       if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
@@ -146,14 +154,15 @@ class command(commands.Cog):
   @cog_ext.cog_slash(name='config',description='set variables for the bot')
   @is_owner()
   async def config(self,ctx:SlashContext,variable,value):
-    if variable not in configVariables: await ctx.send('variable error'); return
+    if variable not in data['servers'][str(ctx.guild.id)]['config']: await ctx.send('variable error'); return
+    if variable == 'maxRolls' and int(value) > 32768: await ctx.send('maxRolls cannot be higher than 32768!'); return
     if value in valueConverter: value = valueConverter[value]
     else:
       try: value = int(value)
       except: await ctx.send('value error'); return
-    if type(data['servers'][str(ctx.guild.id)]['config']) == type(value): data['servers'][str(ctx.guild.id)]['config'] = value
+    if type(data['servers'][str(ctx.guild.id)]['config'][variable]) == type(value): data['servers'][str(ctx.guild.id)]['config'][variable] = value
     else: await ctx.send('type error'); return
-    await ctx.send(f"successfully set {variable} to {data['servers'][str(ctx.guild.id)]['config']}")
+    await ctx.send(f"successfully set {variable} to {data['servers'][str(ctx.guild.id)]['config'][variable]}")
   @cog_ext.cog_slash(name='reload',description='reloads save files')
   @is_owner()
   async def reloadSaves(self,ctx:SlashContext):
@@ -170,6 +179,7 @@ class command(commands.Cog):
     except Exception as e: await ctx.send(e)
   @cog_ext.cog_slash(name='roll',description='roll with modifiers')
   async def roll(self,ctx:SlashContext,dice:int,sides:int,modifiers:int):
+    maxRoll = data['servers'][str(ctx.guild.id)]['config']['maxRoll']
     if dice > maxRoll or sides > maxRoll or dice < 0 or sides < 0: await ctx.send(f'rolls must be between 0 and {maxRoll}!')
     result = modifiers
     rolls = []
@@ -184,14 +194,18 @@ class command(commands.Cog):
     for member in data['variables']['messages']:
       if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
       rank = str(index)+("th" if 4<=index%100<=20 else {1:"st",2:"nd",3:"rd"}.get(index%10, "th")); index += 1
-      names.append(f'{rank} - {data["variables"]["idNameCache"][member]}: {data["variables"]["idNameCache"][member]}')
+      names.append(f"{rank} - {data['variables']['idNameCache'][member]}: {data['variables']['messages'][member]}")
     await ctx.send(embed=discord.Embed(title='Messages:',description='\n'.join(names),color=0x69ff69))
   @cog_ext.cog_subcommand(base='get',name='avatar',description='returns the avatar of given user')
-  async def get_avatar(self,ctx:SlashContext,user:discord.User,resolution=512): await ctx.send(str(user.avatar_url_as(format="png",size=resolution)))
+  async def get_avatar(self,ctx:SlashContext,user:discord.User,resolution=512):
+    try: user = await client.fetch_user(user)
+    except: pass
+    await ctx.send(embed=discord.Embed(title=f'{user.name}\'s avatar').set_image(url=str(user.avatar_url_as(format="png",size=int(resolution)))))
   @cog_ext.cog_subcommand(base='get',name='guild',description='returns guild name from id')
-  async def get_guild(self,ctx:SlashContext,guild): await ctx.send((await client.fetch_guild(int(guild))).name)
+  async def get_guild(self,ctx:SlashContext,guild):
+    await ctx.send((await client.fetch_guild(int(guild))).name)
   @cog_ext.cog_subcommand(base='get',name='name',description='returns user name from id')
-  async def get_name(self,ctx:SlashContext,user): await ctx.send((await client.fetch_user(int(user)).name))
+  async def get_name(self,ctx:SlashContext,user): await ctx.send((await client.fetch_user(int(user))).name)
   @cog_ext.cog_subcommand(base='get',name='variable',description='returns variable')
   @is_owner()
   async def get_variable(self,ctx:SlashContext,variable:str):
@@ -210,7 +224,8 @@ class msgLogger(commands.Cog):
   @commands.Cog.listener()
   async def on_message(self,message):
     nonAsync.logMessages(message,'s',' - image or embed') if message.content == "" else nonAsync.logMessages(message,'s')
-    nonAsync.messageCount(str(message.author.id), str(message.guild.id))
+    try: nonAsync.messageCount(str(message.author.id), str(message.guild.id))
+    except AttributeError: pass
   @commands.Cog.listener()
   async def on_message_delete(self,message):
     if message.author == client.user and re.sub('​','',message.content) in userqa:
@@ -226,10 +241,11 @@ class msgLogger(commands.Cog):
     nonAsync.logMessages(message_before,'e',message_after,' - image or embed') if message_after.content == "" else nonAsync.logMessages(message_before,'e',message_after)
 class nonAsync(commands.Cog):
   def __init__(self,client): self.client = client
-  def messageCount(author,guild):
+  def messageCount(author,guild=None):
     if author in data['variables']['messages']: data['variables']['messages'][author] += 1
     else: data['variables']['messages'].update({author:1})
-    if author not in data['servers'][guild]['activeMembers']: data['servers'][guild]['activeMembers'].append(author)
+    if guild != None:
+      if author not in data['servers'][guild]['activeMembers'] and data['servers'][guild]['config']['enableTalkingStick']: data['servers'][guild]['activeMembers'].append(author)
     save()
   def logMessages(ctx,type,ctx2='',ext=''):
     match type:
@@ -271,25 +287,29 @@ class general(commands.Cog):
     data['servers'][str(guild.id)] = data['defaultServer']
   @commands.Cog.listener()
   async def on_message(self,message):
-    if data['servers'][str(message.guild.id)]['config']['enableAutoResponses'] and not message.author.bot: await general.autoResponse(message)
+    try:
+      if data['servers'][str(message.guild.id)]['config']['enableAutoResponses'] and not message.author.bot: await general.autoResponse(message)
+    except AttributeError: pass
   async def autoResponse(ctx):
     if ctx.author.bot: return
     if ctx.author.id == client.owner_id and ctx.content in userqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(userqa[ctx.content]); return
     if ctx.author.id != client.owner_id and ctx.content in userqa: await ctx.channel.send(userqa[ctx.content]); return
     if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
-  async def rollTalkingStick(guild:str):
+  async def rollTalkingStick(guild):
     tsRole = discord.Object(data['servers'][guild]['tsRole'])
+    server = await client.fetch_guild(guild)
     while True:
-      rand = data['servers'][guild]['activeMembers'][randint(0,len(data['servers'][guild]['activeMembers'])-1)]
-      oldStik = await server.fetch_member(currentStik)
+      try: rand = data['servers'][guild]['activeMembers'][randint(0,len(data['servers'][guild]['activeMembers'])-1)]
+      except ValueError: return 
+      oldStik = await server.fetch_member(data['servers'][guild]['currentStik'])
       newStik = await server.fetch_member(rand)
-      if not (rand == currentStik or (newStik.bot and oldStik.bot)): break
+      if not (rand == data['servers'][guild]['currentStik'] or (newStik.bot and oldStik.bot)): break
     await oldStik.remove_roles(tsRole)
     await newStik.add_roles(tsRole)
     await (await client.fetch_channel(data['servers'][guild]['tsChannel'])).send(f'congrats <@!{rand}>, you have the talking stick.')
-    currentStik = rand
-    if currentStik in data['servers'][guild]['tsLeaderboard']: data['servers'][guild]['tsLeaderboard'][currentStik] += 1
-    else: data['servers'][guild]['tsLeaderboard'].update({currentStik:1})
+    data['servers'][guild]['currentStik'] = rand
+    if data['servers'][guild]['currentStik'] in data['servers'][guild]['tsLeaderboard']: data['servers'][guild]['tsLeaderboard'][(data['servers'][guild]['currentStik'])] += 1
+    else: data['servers'][guild]['tsLeaderboard'].update({(data['servers'][guild]['currentStik']):1})
     data['servers'][guild]['activeMembers'] = []
     save()
 @client.command(name='help')
@@ -297,8 +317,8 @@ async def redirectToSlash(ctx): await ctx.send('all commands have been ported to
 @client.event
 async def on_command_error(ctx,error): await ctx.send(f'error: {error}'); pass
 
-# client.loop.create_task(theDisciplineSticc.sticcLoop())
-# client.add_cog(theDisciplineSticc(client))
+client.loop.create_task(theDisciplineSticc.sticcLoop())
+client.add_cog(theDisciplineSticc(client))
 client.add_cog(serverMcstarter(client))
 client.add_cog(msgLogger(client))
 client.add_cog(nonAsync(client))
