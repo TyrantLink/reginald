@@ -25,7 +25,7 @@ def setupLogger(name,log_file,level=logging.WARNING):
 load_dotenv()
 mainDirectory = os.getcwd()
 try: data = json.loads(open('save.json','r').read())
-except: data = {"defaultServer":{"config":{"godExempt":True,"enableAutoResponses":True,"enableTalkingStick":True,"maxServerStartTime":90,"maxRoll":16384},"activeMembers":[],"tsLeaderboard":{},"tsRole":0,"tsChannel":0,"currentStik":0},"variables":{"idNameCache":{},"messages":{}}"servers":{}}
+except: data = {"defaultServer":{"config":{"godExempt":True,"enableAutoResponses":True,"enableTalkingStick":True,"maxServerStartTime":90,"maxRoll":16384},"activeMembers":[],"tsLeaderboard":{},"tsRole":0,"tsChannel":0,"currentStik":0},"variables":{"idNameCache":{},"messages":{}},"servers":{}}
 staticVariables = {
   'msgToConsole':True,
   'serverStarted':False,
