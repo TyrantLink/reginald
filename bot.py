@@ -109,8 +109,12 @@ class theDisciplineSticc(commands.Cog):
         await asyncio.sleep(60)
         if datetime.now().strftime("%H:%M") == '09:00':
           for guild in data['servers']:
-            if guild['tsRole'] == 0 or guild['tsChannel'] == 0: await (discord.utils.get((await client.fetch_guild(guild)).channels,name='general')).send('error in talking stick. please redo setup.'); continue
-            if guild['config']['enableTalkingStick']: await general.rollTalkingStick(guild)
+            if (data['servers'][guild]['tsRole'] == 0 or data['servers'][guild]['tsChannel'] == 0) and data['servers'][guild]['config']['enableTalkingStick']:
+              server = await client.fetch_guild(int(guild))
+              owner = await server.fetch_member(server.owner_id)
+              await owner.send(f'error in talking stick. please redo setup in {server.name}.')
+              continue
+            if data['servers'][guild]['config']['enableTalkingStick']: await general.rollTalkingStick(guild)
           nonAsync.messageBackup()
   @cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc.')
   @adminOrOwner()
@@ -163,7 +167,7 @@ class command(commands.Cog):
     if type(data['servers'][str(ctx.guild.id)]['config'][variable]) == type(value): data['servers'][str(ctx.guild.id)]['config'][variable] = value
     else: await ctx.send('type error'); return
     await ctx.send(f"successfully set {variable} to {data['servers'][str(ctx.guild.id)]['config'][variable]}")
-    if variable == 'enableTalkingStick': await ctx.send('remember to do /sticc setup to enable the talking sticc.')
+    if variable == 'enableTalkingStick' and value in valueConverter: await ctx.send('remember to do /sticc setup to enable the talking sticc.')
   @cog_ext.cog_slash(name='reload',description='reloads save files')
   @is_owner()
   async def reloadSaves(self,ctx:SlashContext):
@@ -224,7 +228,7 @@ class msgLogger(commands.Cog):
   def __init__(self,client): self.client = client
   @commands.Cog.listener()
   async def on_message(self,message):
-    nonAsync.logMessages(message,'s',' - image or embed') if message.content == "" else nonAsync.logMessages(message,'s')
+    await general.logMessages(message,'s',' - image or embed') if message.content == "" else await general.logMessages(message,'s')
     try: nonAsync.messageCount(str(message.author.id), str(message.guild.id))
     except AttributeError: pass
   @commands.Cog.listener()
@@ -233,13 +237,13 @@ class msgLogger(commands.Cog):
       while True:
         try: await message.channel.send(message.content); break
         except: sleep(0.1)
-    nonAsync.logMessages(message,'d',' - image or embed') if message.content == "" else nonAsync.logMessages(message,'d')
+    await general.logMessages(message,'d',' - image or embed') if message.content == "" else await general.logMessages(message,'d')
   @commands.Cog.listener()
   async def on_bulk_message_delete(self,messages):
-    for message in messages: nonAsync.logMessages(message,'bd',' - image or embed') if message.content == "" else nonAsync.logMessages(message,'bd')
+    for message in messages: await general.logMessages(message,'bd',' - image or embed') if message.content == "" else await general.logMessages(message,'bd')
   @commands.Cog.listener()
   async def on_message_edit(self,message_before,message_after):
-    nonAsync.logMessages(message_before,'e',message_after,' - image or embed') if message_after.content == "" else nonAsync.logMessages(message_before,'e',message_after)
+    await general.logMessages(message_before,'e',message_after,' - image or embed') if message_after.content == "" else await general.logMessages(message_before,'e',message_after)
 class nonAsync(commands.Cog):
   def __init__(self,client): self.client = client
   def messageCount(author,guild=None):
@@ -248,25 +252,6 @@ class nonAsync(commands.Cog):
     if guild != None:
       if author not in data['servers'][guild]['activeMembers'] and data['servers'][guild]['config']['enableTalkingStick']: data['servers'][guild]['activeMembers'].append(author)
     save()
-  def logMessages(ctx,type,ctx2='',ext=''):
-    match type:
-      case 's':
-        log=f'{ctx.author} sent "{ctx.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-        if msgToConsole and not ctx.author.bot and '' not in ctx.content: print(f'{ctx.author} sent "{ctx.content}" in {ctx.channel}')
-        sentLog.warning(log)
-      case 'd':
-        log=f'"{ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-        if msgToConsole and '' not in ctx.content: print(f'"{ctx.content}" by {ctx.author} was deleted in {ctx.channel}')
-        deletedLog.warning(log)
-      case 'bd':
-        log=f'"{ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-        if msgToConsole and '' not in ctx.content: print(f'"{ctx.content}" by {ctx.author} was purged in {ctx.channel}')
-        deletedLog.warning(log)
-      case 'e':
-        if ctx.content == ctx2.content: return
-        log=f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-        if msgToConsole and '' not in ctx.content: print(f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {ctx.channel}')
-        editedLog.warning(log)
   def messageBackup(): copytree(f'{os.getcwd()}\\logs', f'{os.getcwd()}\\backups\\logs\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S")}')
   def getServerSize(server):
     size = 0; sizeType = 0
@@ -296,19 +281,41 @@ class general(commands.Cog):
     if ctx.author.id == client.owner_id and ctx.content in userqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(userqa[ctx.content]); return
     if ctx.author.id != client.owner_id and ctx.content in userqa: await ctx.channel.send(userqa[ctx.content]); return
     if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
+  async def logMessages(ctx,type,ctx2='',ext=''):
+    match type:
+      case 's':
+        log=f'{ctx.author} sent "{ctx.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
+        if msgToConsole and not ctx.author.bot and '' not in ctx.content: print(f'{ctx.author} sent "{ctx.content}" in {ctx.channel}')
+        sentLog.warning(log)
+      case 'd':
+        log=f'"{ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
+        for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',proxy_url=True)
+        if msgToConsole and '' not in ctx.content: print(f'"{ctx.content}" by {ctx.author} was deleted in {ctx.channel}')
+        deletedLog.warning(log)
+      case 'bd':
+        log=f'"{ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
+        for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',proxy_url=True)
+        if msgToConsole and '' not in ctx.content: print(f'"{ctx.content}" by {ctx.author} was purged in {ctx.channel}')
+        deletedLog.warning(log)
+      case 'e':
+        if ctx.content == ctx2.content: return
+        log=f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
+        if msgToConsole and '' not in ctx.content: print(f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {ctx.channel}')
+        editedLog.warning(log)
   async def rollTalkingStick(guild):
     tsRole = discord.Object(data['servers'][guild]['tsRole'])
     server = await client.fetch_guild(guild)
     while True:
       try: rand = data['servers'][guild]['activeMembers'][randint(0,len(data['servers'][guild]['activeMembers'])-1)]
       except ValueError: return 
-      oldStik = await server.fetch_member(data['servers'][guild]['currentStik'])
+      try: oldStik = await server.fetch_member(data['servers'][guild]['currentStik'])
+      except discord.errors.NotFound: oldStik = await server.fetch_member(rand)
       newStik = await server.fetch_member(rand)
       if not (rand == data['servers'][guild]['currentStik'] or (newStik.bot and oldStik.bot)): break
-    await oldStik.remove_roles(tsRole)
+    if not oldStik: await oldStik.remove_roles(tsRole)
     await newStik.add_roles(tsRole)
     await (await client.fetch_channel(data['servers'][guild]['tsChannel'])).send(f'congrats <@!{rand}>, you have the talking stick.')
-    data['servers'][guild]['currentStik'] = rand
+    data['servers'][guild]['currentStik'] = int(rand)
     if data['servers'][guild]['currentStik'] in data['servers'][guild]['tsLeaderboard']: data['servers'][guild]['tsLeaderboard'][(data['servers'][guild]['currentStik'])] += 1
     else: data['servers'][guild]['tsLeaderboard'].update({(data['servers'][guild]['currentStik']):1})
     data['servers'][guild]['activeMembers'] = []
