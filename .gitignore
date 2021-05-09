@@ -1,3 +1,4 @@
+fileCache/
 .pylintrc
 test.py
 *.json
