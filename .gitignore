@@ -1,5 +1,4 @@
 fileCache/
-.pylintrc
 test.py
 *.json
 *.log
