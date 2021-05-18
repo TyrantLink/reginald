@@ -1,0 +1,29 @@
+{
+  "botConfig": {
+    "outputToConsole": true,
+    "stickToConsole": true,
+    "msgToConsole": false,
+    "botToConsole": false
+  },
+  "defaultServer": {
+    "config": {
+      "godExempt": true,
+      "enableAutoResponses": true,
+      "enableTalkingStick": false,
+      "enableDadBot": false,
+      "maxServerStartTime": 90,
+      "maxRoll": 16384
+    },
+    "ignore": [],
+    "activeMembers": [],
+    "tsLeaderboard": {},
+    "tsRole": 0,
+    "tsChannel": 0,
+    "currentStik": 0
+  },
+  "variables": {
+    "idNameCache": {},
+    "messages": {}
+  },
+  "servers": {}
+}

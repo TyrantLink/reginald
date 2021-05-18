@@ -1,0 +1,28 @@
+{
+  "exampleServer1":
+  {
+    "name":"exampleServer1",
+    "ip":"mc.example.com",
+    "directory":"path\\to\\server\\directory",
+    "version":"1.16.5",
+    "isModded":"no",
+    "mods":
+    [
+      "none (vanilla)"
+    ]
+  },
+  "exampleServer2":
+  {
+    "name":"exampleServer2",
+    "ip":"mc.example.net",
+    "directory":"path\\to\\server2\\directory",
+    "version":"1.12.2",
+    "isModded":"yes",
+    "mods":
+    [
+      "mod1",
+      "mod2",
+      "etc"
+    ]
+  }
+}

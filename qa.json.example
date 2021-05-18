@@ -1,0 +1,14 @@
+{
+  "userqa":
+  {
+    "trigger":"response"
+  },
+  "godqa":
+  {
+    "trigger":"response"
+  },
+  "fileqa":
+  {
+    "trigger":"filename"
+  }
+}
