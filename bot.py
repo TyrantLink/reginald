@@ -6,7 +6,6 @@ from shutil import copytree
 from time import time,sleep
 from datetime import datetime
 from dotenv import load_dotenv
-# from serverConnection import client
 from mcstatus import MinecraftServer
 from discord.ext import commands
 from discord_slash import cog_ext,SlashCommand,SlashContext
@@ -22,9 +21,7 @@ def setupLogger(name,log_file,level=logging.WARNING):
 	return logger
 load_dotenv()
 try: data = json.loads(open('save.json','r').read())
-except: data = {"defaultServer":{"config":{"godExempt":True,"enableAutoResponses":True,"enableTalkingStick":True,"maxServerStartTime":90,"maxRoll":16384},"activeMembers":[],"tsLeaderboard":{},"tsRole":0,"tsChannel":0,"currentStik":0},"variables":{"idNameCache":{},"messages":{}},"servers":{}}
-try: ricePurityFile = json.loads(open('ricePurity.json','r',1,'utf-8').read())
-except: print('error loading rice purity'); pass
+except: data = json.loads(open('save.json.default','r').read())
 serverStarted=False
 sizes={2:'MBs',3:'GBs'}
 mainDirectory = os.getcwd()
