@@ -255,7 +255,7 @@ class command(commands.Cog):
 		for i in range(dice): roll = randint(1,sides); rolls.append(str(roll)); result+=roll
 		try: await ctx.send(embed=discord.Embed(title=f'roll: {dice}d{sides}+{modifiers}' if modifiers>0 else f'roll: {dice}d{sides}',color=0x69ff69).add_field(name='rolls:',value=f'[{",".join(rolls)}]',inline=False).add_field(name='Result:',value=result,inline=False))
 		except: await ctx.send(embed=discord.Embed(title=f'roll: {dice}d{sides}+{modifiers}' if modifiers>0 else f'roll: {dice}d{sides}',color=0x69ff69).add_field(name='rolls:',value='total rolls above character limit.',inline=False).add_field(name='Result:',value=result,inline=False))
-		general.logOutput(f'roll {dice}d{sides}+{modifiers} requested in  {ctx.guild.name} by {ctx.author.name}')
+		general.logOutput(f'roll {dice}d{sides}+{modifiers} requested in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='leaderboard',name='messages',description='leaderboard of total messages sent.')
 	async def leaderboard_messages(self,ctx:SlashContext):
 		data['variables']['messages'] = {key: value for key, value in sorted(data['variables']['messages'].items(), key=lambda item: item[1],reverse=True)}
@@ -291,8 +291,9 @@ class command(commands.Cog):
 		general.logOutput(f'variable {variable} requested in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='reginald',name='info',description='lists info on reginald.')
 	async def reginald_info(self,ctx:SlashContext):
-		embed = discord.Embed(title='Reginald Info:',description="""a fucked up mash up of the server mcstarter, the discipline sticc, and the mcfuck.\n
-		please submit any issues to https://github.com/TyrantLink/reginald/issues/\n
+		embed = discord.Embed(title='Reginald Info:',description="""a mash up of the server mcstarter, the discipline sticc, and the mcfuck.\n
+		please submit any issues using /reginald issue\n
+		and if you have any suggestions, you can use /reginald suggest\n
 		thank you, all hail reginald.""",color=0x69ff69)
 		await ctx.send(embed=embed)
 		general.logOutput(f'reginald info requested in {ctx.guild.name} by {ctx.author.name}')
@@ -364,7 +365,8 @@ class general(commands.Cog):
 		await slash.sync_all_commands()
 	@commands.Cog.listener()
 	async def on_guild_join(self,guild):
-		await (discord.utils.get(guild.channels,name='general')).send(file=discord.File('reginald.png'))
+		try: await (discord.utils.get(guild.channels,name='general')).send(file=discord.File('reginald.png'))
+		except: pass
 		data['servers'][str(guild.id)] = data['defaultServer']
 	@commands.Cog.listener()
 	async def on_message(self,ctx):
@@ -389,6 +391,32 @@ class general(commands.Cog):
 	def logOutput(log):
 		outputLog.warning(log)
 		if data['botConfig']['outputToConsole']: print(log)
+class development(commands.Cog):
+	def __init__(self,client): self.client = client
+	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=[844127424526680084])
+	@is_owner()
+	async def reginald_dev_commit(self,ctx:SlashContext,title,description,version=None):
+		if version == None: data['information']['version'] += 0.01; version = data['information']['version']
+		description = '\n'.join(description.split('\\n'))
+		channel = await client.fetch_channel(data['information']['change-log-channel'])
+		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nchanges:\n{description}',color=0x69ff69))
+		await message.publish()
+		await ctx.send('successfully pushed change.')
+		general.logOutput(f'pushed new commit in {ctx.guild.name} by {ctx.author.name}')
+	@cog_ext.cog_subcommand(base='reginald',name='suggest',description='suggest a feature for reginald')
+	async def reginald_suggest(self,ctx:SlashContext,suggestion,details):
+		channel = await client.fetch_channel(data['information']['suggestions-channel'])
+		message = await channel.send(embed=discord.Embed(title=suggestion,description=f'suggested by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
+		for i in ['👍','👎']: await message.add_reaction(i)
+		await ctx.send('thank you for your suggestion!')
+		general.logOutput(f'new suggestion {suggestion} in {ctx.guild.name} by {ctx.author.name}')
+	@cog_ext.cog_subcommand(base='reginald',name='issue',description='report an issue with reginald')
+	async def reginald_issue(self,ctx:SlashContext,issue,details):
+		channel = await client.fetch_channel(data['information']['issues-channel'])
+		message = await channel.send(embed=discord.Embed(title=issue,description=f'suggested by: {ctx.author.mention}\n\nhow to replicate:\n{details}',color=0x69ff69))
+		for i in ['👍','👎']: await message.add_reaction(i)
+		await ctx.send('thank you for reporting this issue!')
+		general.logOutput(f'new issue {issue} in {ctx.guild.name} by {ctx.author.name}')
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
@@ -399,6 +427,7 @@ async def nonSlashTest(ctx): await ctx.channel.send('pp')
 client.loop.create_task(theDisciplineSticc.sticcLoop())
 client.add_cog(theDisciplineSticc(client))
 client.add_cog(serverMcstarter(client))
+client.add_cog(development(client))
 client.add_cog(msgLogger(client))
 client.add_cog(command(client))
 client.add_cog(general(client))
