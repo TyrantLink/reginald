@@ -390,9 +390,10 @@ class general(commands.Cog):
 			if ctx.author.id != client.owner_id and ctx.content in userqa: await ctx.channel.send(userqa[ctx.content]); return
 			if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
 	async def dadBot(ctx):
-		if ctx.author.id == client.owner_id and data['servers'][str(ctx.guild.id)]['config']['godExempt']: return
+		if ctx.author.bot or (ctx.author.id == client.owner_id and data['servers'][str(ctx.guild.id)]['config']['godExempt']): return
+		message = re.sub(r'<(@!|@)\d{18}>','{ping}',ctx.content)
 		for splitter in splitters:
-			split = ctx.content.split(splitter)
+			split = message.split(splitter)
 			if len(split) > 1: break
 		else: return
 		await ctx.channel.send(f"Hi {splitter.join(split[1:])}, {splitter}dad.")
@@ -403,11 +404,12 @@ class development(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=[844127424526680084])
 	@is_owner()
-	async def reginald_dev_commit(self,ctx:SlashContext,title,description,newversion:bool=True):
+	async def reginald_dev_commit(self,ctx:SlashContext,title,features,fixes,newversion:bool=True):
 		if newversion: data['information']['version'] += 0.01; version = data['information']['version']
-		description = '\n'.join(description.split('\\n'))
+		features = '\n- '.join(features.split('\\n'))
+		fixes = '\n- '.join(fixes.split('\\n'))
 		channel = await client.fetch_channel(data['information']['change-log-channel'])
-		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nchanges:\n{description}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nfeatures:\n{features}\n\nfixes:\n{fixes}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
 		await message.publish()
 		await ctx.send('successfully pushed change.')
 		general.logOutput(f'pushed new commit in {ctx.guild.name} by {ctx.author.name}')
@@ -435,6 +437,10 @@ class development(commands.Cog):
 			await ctx.channel.send(f'initalized {member.name}...')
 		save()
 		await ctx.channel.send('initialization complete.')
+	@cog_ext.cog_subcommand(base='reginald-dev',name='test',description='used for testing',guild_ids=[617569794987786270])
+	@is_owner()
+	async def reginald_dev_test(self,ctx:SlashContext):
+		await ctx.send('@everyone')
 class birthdays(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup birthday role')
@@ -442,8 +448,9 @@ class birthdays(commands.Cog):
 	@guild_only()
 	async def birthday_setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
 		if not data['servers'][str(ctx.guild.id)]['config']['enableBirthdays']: await ctx.send(embed=discord.Embed(title='Birthdays is not enabled on this server.',color=0x69ff69)); return
-		data['servers'][str(ctx.guild.id)]['config']['birthdayRole'] = role.id
-		await ctx.send(f'successfully set birthday role to {role.mention}')
+		data['servers'][str(ctx.guild.id)]['birthdayRole'] = role.id
+		data['servers'][str(ctx.guild.id)]['birthdayChannel'] = channel.id
+		await ctx.send(f'successfully set birthday role to {role.mention} and birthday channel to {channel.mention}')
 		general.logOutput(f'birthday role set to {role.name} in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='birthday',name='set',description='setup birthday role')
 	async def birthday_set(self,ctx:SlashContext,month,day):
@@ -460,31 +467,32 @@ class birthdays(commands.Cog):
 		oldDate = None
 		while client.is_ready:
 				await asyncio.sleep(300)
-				date = datetime.now().strftime('%m/%Y')
+				date = datetime.now().strftime('%m/%d')
 				if date != oldDate:
 					for user in data['users']:
-						if user == 'default': continue
+						if user == 'default' or user in data['variables']['activeBirthdays']: continue
 						if data['users'][user]['birthday'] == date:
 							for guild in data['users'][user]['guilds']:
+								if not data['servers'][guild]['config']['enableBirthdays']: continue
 								server = await client.fetch_guild(int(guild))
-								if (data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayChannel'] == 0) and data['servers'][guild]['config']['enableBirthdays']:
-									await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup in {server.name}.')
+								if data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayChannel'] == 0:
+									await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup or move birthday role below reginald role in {server.name}.')
 									continue
-								if data['servers'][guild]['config']['enableBirthdays']:
-									member = await server.fetch_member(user)
-									await member.add_roles(discord.Object(data['servers'][guild]['birthdayRole']))
-									data['variables']['activeBirthdays'].append(user)
-									await (await client.fetch_channel(data['servers'][guild]['birthdayChannel'])).send(f'Happy Birthday {member.mention}')
+								member = await server.fetch_member(user)
+								await member.add_roles(discord.Object(data['servers'][guild]['birthdayRole']))
+								data['variables']['activeBirthdays'].append(user)
+								await (await client.fetch_channel(data['servers'][guild]['birthdayChannel'])).send(f'Happy Birthday {member.mention}!')
 					for user in data['variables']['activeBirthdays']:
 						if date != data['users'][user]['birthday']:
 							for guild in data['users'][user]['guilds']:
+								if not data['servers'][guild]['config']['enableBirthdays']: continue
 								server = await client.fetch_guild(int(guild))
-								if (data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayChannel'] == 0) and data['servers'][guild]['config']['enableBirthdays']:
-									await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup in {server.name}.')
+								if data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayChannel'] == 0:
+									await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup or move birthday role below reginald role in {server.name}.')
 									continue
-								if data['servers'][guild]['config']['enableBirthdays']:
-									member = await server.fetch_member(user)
-									await member.remove_roles(discord.Object(data['servers'][guild]['birthdayRole']))
+								member = await server.fetch_member(user)
+								await member.remove_roles(discord.Object(data['servers'][guild]['birthdayRole']))
+								data['variables']['activeBirthdays'].remove(user)
 					oldDate = date
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
