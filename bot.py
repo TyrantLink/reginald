@@ -1,4 +1,5 @@
 import os,re,json,logging,discord,asyncio
+from discord.ext.commands.core import guild_only
 from discord_slash.utils.manage_commands import create_option
 from mcrcon import MCRcon
 from random import randint
@@ -22,6 +23,7 @@ def setupLogger(name,log_file,level=logging.WARNING):
 load_dotenv()
 try: data = json.loads(open('save.json','r').read())
 except: data = json.loads(open('save.json.default','r').read())
+birthday = json.loads(open('birthdays.json','r').read())
 serverStarted=False
 sizes={2:'MBs',3:'GBs'}
 mainDirectory = os.getcwd()
@@ -43,7 +45,7 @@ slash=SlashCommand(client)
 
 def adminOrOwner(): return (is_owner() or has_permissions(administrator=True))
 def modOrOwner(): return (is_owner() or has_permissions(manage_server=True))
-def save(): json.dump(data,open('save.json','w+'),indent=2)
+def save(): json.dump(data,open('save.json','w+'),indent=2); json.dump(birthday,open('birthdays.json','w+'),indent=2)
 
 class serverMcstarter(commands.Cog):
 	def __init__(self,client): self.client = client
@@ -294,6 +296,7 @@ class command(commands.Cog):
 		embed = discord.Embed(title='Reginald Info:',description="""a mash up of the server mcstarter, the discipline sticc, and the mcfuck.\n
 		please submit any issues using /reginald issue\n
 		and if you have any suggestions, you can use /reginald suggest\n
+		you can follow development here: https://discord.gg/4mteVXBDW7\n
 		thank you, all hail reginald.""",color=0x69ff69)
 		await ctx.send(embed=embed)
 		general.logOutput(f'reginald info requested in {ctx.guild.name} by {ctx.author.name}')
@@ -399,7 +402,7 @@ class development(commands.Cog):
 		if version == None: data['information']['version'] += 0.01; version = data['information']['version']
 		description = '\n'.join(description.split('\\n'))
 		channel = await client.fetch_channel(data['information']['change-log-channel'])
-		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nchanges:\n{description}',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nchanges:\n{description}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
 		await message.publish()
 		await ctx.send('successfully pushed change.')
 		general.logOutput(f'pushed new commit in {ctx.guild.name} by {ctx.author.name}')
@@ -417,6 +420,49 @@ class development(commands.Cog):
 		for i in ['👍','👎']: await message.add_reaction(i)
 		await ctx.send('thank you for reporting this issue!')
 		general.logOutput(f'new issue {issue} in {ctx.guild.name} by {ctx.author.name}')
+class birthdays(commands.Cog):
+	def __init__(self,client): self.client = client
+	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup birthday role')
+	@adminOrOwner()
+	@guild_only()
+	async def birthday_setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
+		if not data['servers'][str(ctx.guild.id)]['config']['enableBirthdays']: await ctx.send(embed=discord.Embed(title='Birthdays is not enabled on this server.',color=0x69ff69)); return
+		data['servers'][str(ctx.guild.id)]['config']['birthdayRole'] = role.id
+		await ctx.send(f'successfully set birthday role to {role.mention}')
+		general.logOutput(f'birthday role set to {role.name} in {ctx.guild.name} by {ctx.author.name}')
+	@cog_ext.cog_subcommand(base='birthday',name='set',description='setup birthday role')
+	async def birthday_set(self,ctx:SlashContext,month,day):
+		birthday['birthdays'].update({str(ctx.author.id):f'{month.zfill(2)}/{day.zfill(2)}'})
+		await ctx.send(f"birthday successfully set to {birthday['birthdays'][str(ctx.author.id)]}")
+		general.logOutput(f"birthday set to {birthday['birthdays'][str(ctx.author.id)]} in {ctx.guild.name} by {ctx.author.name}")
+	@cog_ext.cog_subcommand(base='birthday',name='reset',description='reset your birthday')
+	async def birthday_remove(self,ctx:SlashContext):
+		birthday['birthdays'].update({str(ctx.author.id):None})
+		await ctx.send(f'birthday successfully reset')
+		general.logOutput(f'birthday reset in {ctx.guild.name} by {ctx.author.name}')
+	async def birthdayLoop():
+		await client.wait_until_ready()
+		dayDone = False
+		oldDate = None
+		while client.is_ready:
+				await asyncio.sleep(300)
+				oldDate = date
+				date = datetime.now().strftime('%m/%Y')
+				if date in birthday['birthdays'] and not date == oldDate:
+					for guild in data['servers']:
+						server = await client.fetch_guild(int(guild))
+						if (data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayRole'] == 0) and data['servers'][guild]['config']['enableBirthdays']:
+							await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup in {server.name}.')
+							continue
+						if data['servers'][guild]['config']['enableBirthdays']:
+							for key,value in birthday['birthdays'].items():
+								if value == date:
+									user = await server.fetch_member(key)
+									user.add_roles(discord.Object(data['servers'][guild]['birthdayRole']))
+									await (await client.fetch_channel(data['servers'][guild]['birthdayChannel'])).send(f'Happy Birthday {user.mention}!')
+					dayDone = True
+				for users in birthday['active']:
+					print('wip')
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
@@ -428,6 +474,7 @@ client.loop.create_task(theDisciplineSticc.sticcLoop())
 client.add_cog(theDisciplineSticc(client))
 client.add_cog(serverMcstarter(client))
 client.add_cog(development(client))
+client.add_cog(birthdays(client))
 client.add_cog(msgLogger(client))
 client.add_cog(command(client))
 client.add_cog(general(client))
