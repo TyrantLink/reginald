@@ -23,35 +23,32 @@ def setupLogger(name,log_file,level=logging.WARNING):
 load_dotenv()
 try: data = json.loads(open('save.json','r').read())
 except: data = json.loads(open('save.json.default','r').read())
-birthday = json.loads(open('birthdays.json','r').read())
 serverStarted=False
 sizes={2:'MBs',3:'GBs'}
 mainDirectory = os.getcwd()
-splitters = ["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
 hypixelKey=os.getenv('hypixelKey')
 serverQuery=os.getenv('serverQuery')
-servers = json.loads(open('servers.json','r').read())
+servers=json.loads(open('servers.json','r').read())
 outputLog=setupLogger('output log','logs/output.log')
 sentLog=setupLogger('sent log','logs/messages/sent.log')
 editedLog=setupLogger('edited log','logs/messages/edited.log')
 deletedLog=setupLogger('deleted log','logs/messages/deleted.log')
 valueConverter={'True':True,'False':False,'true':True,'false':False}
 bannedVariables=['__file__','qa','userqa','godqa','hypixelKey','servers']
+splitters=["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
 qa=json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']; fileqa = qa['fileqa']
 mc=MCRcon(os.getenv('mcRconHost'),os.getenv('mcRconPassword'),int(os.getenv('mcRconPort')))
-client=commands.Bot(command_prefix=('reginald!','reg!','r!'),case_insensitive=True,help_command=None,owner_id=250797109022818305)
+client=commands.Bot(command_prefix=('reginald!','reg!','r!'),case_insensitive=True,help_command=None,owner_id=250797109022818305,intents=discord.Intents.all())
 slash=SlashCommand(client)
-
 
 def adminOrOwner(): return (is_owner() or has_permissions(administrator=True))
 def modOrOwner(): return (is_owner() or has_permissions(manage_server=True))
-def save(): json.dump(data,open('save.json','w+'),indent=2); json.dump(birthday,open('birthdays.json','w+'),indent=2)
+def save(): json.dump(data,open('save.json','w+'),indent=2)
 
 class serverMcstarter(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='minecraft',name='start',description='starts a minecraft server.')
 	async def start(self,ctx:SlashContext,server):
-		await ctx.send('most of reginald is disabled right now, it should be back in a few weeks, send any emergency issues to https://github.com/TyrantLink/reginald/issues'); return
 		if serverStarted: return
 		try: os.chdir(servers[server]['directory'])
 		except: await ctx.send('server name error')
@@ -66,16 +63,14 @@ class serverMcstarter(commands.Cog):
 		general.logOutput(f'starting server {server} in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='minecraft',name='stop',description='stops active minecraft server.')
 	async def stop(self,ctx:SlashContext,args=None):
-		await ctx.send('most of reginald is disabled right now, it should be back in a few weeks, send any emergency issues to https://github.com/TyrantLink/reginald/issues'); return
 		if args == '-f' and not adminOrOwner():
 			if MinecraftServer.lookup(serverQuery).query().players.online > 0: await ctx.send('no, fuck you, there are people online.'); return False
 		try: mc.connect(); mc.command('stop'); mc.disconnect(); serverStarted = False; await client.change_presence(activity=discord.Game('Server Stopped')); await ctx.send('stopping server.')
 		except: await ctx.send('failed to shutdown server.'); return False
-		general.logOutput(f'starting server {server} in {ctx.guild.name} by {ctx.author.name}')
+		general.logOutput(f'stopping server in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='minecraft',name='cmd',description='runs command on the active minecraft server.')
 	@is_owner()
 	async def cmd(self,ctx:SlashContext,command):
-		await ctx.send('most of reginald is disabled right now, it should be back in a few weeks, send any emergency issues to https://github.com/TyrantLink/reginald/issues'); return
 		try: mc.connect(); response = mc.command(command); mc.disconnect()
 		except: await ctx.send('failed to send command'); return
 		try: await ctx.send(re.sub('§.','',response))
@@ -125,7 +120,6 @@ class theDisciplineSticc(commands.Cog):
 	@cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc.')
 	@adminOrOwner()
 	async def setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
-		await ctx.send('most of reginald is disabled right now, it should be back in a few weeks, send any emergency issues to https://github.com/TyrantLink/reginald/issues'); return
 		if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send(embed=discord.Embed(title='The Talking Stick is not enabled on this server.',color=0x69ff69)); return
 		data['servers'][str(ctx.guild.id)]['tsRole'] = role.id
 		data['servers'][str(ctx.guild.id)]['tsChannel'] = channel.id
@@ -210,7 +204,6 @@ class command(commands.Cog):
 	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='set',description='set variables for the bot',options=[create_option('variable','see current value with /config server list',3,True,list(data['defaultServer']['config'].keys())),create_option('value','bool or int',3,True)])
 	@adminOrOwner()
 	async def config_server_set(self,ctx:SlashContext,variable,value):
-		await ctx.send('most of reginald is disabled right now, it should be back in a few weeks, send any emergency issues to https://github.com/TyrantLink/reginald/issues'); return
 		if variable == 'maxRolls' and int(value) > 32768: await ctx.send('maxRolls cannot be higher than 32768!'); return
 		if value in valueConverter: value = valueConverter[value]
 		else:
@@ -371,6 +364,18 @@ class general(commands.Cog):
 		try: await (discord.utils.get(guild.channels,name='general')).send(file=discord.File('reginald.png'))
 		except: pass
 		data['servers'][str(guild.id)] = data['defaultServer']
+		async for member in guild.fetch_members():
+			if str(member.id) in data['users'] and str(guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(guild.id))
+			else: data['users'].update({str(member.id):{'guilds':[str(guild.id)],'birthday':None}})
+		save()
+	@commands.Cog.listener()
+	async def on_member_join(member):
+		if str(member.id) in data['users'] and str(member.guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(member.guild.id))
+		else: data['users'].update({str(member.id):{'guilds':[str(member.guild.id)],'birthday':None}})
+		save()
+	@commands.Cog.listener()
+	async def on_member_leave(member):
+		if str(member.id) in data['users'] and str(member.guild.id) in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].remove(str(member.guild.id))
 	@commands.Cog.listener()
 	async def on_message(self,ctx):
 		try: guild = data['servers'][str(ctx.guild.id)]
@@ -398,8 +403,8 @@ class development(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=[844127424526680084])
 	@is_owner()
-	async def reginald_dev_commit(self,ctx:SlashContext,title,description,version=None):
-		if version == None: data['information']['version'] += 0.01; version = data['information']['version']
+	async def reginald_dev_commit(self,ctx:SlashContext,title,description,newversion:bool=True):
+		if newversion: data['information']['version'] += 0.01; version = data['information']['version']
 		description = '\n'.join(description.split('\\n'))
 		channel = await client.fetch_channel(data['information']['change-log-channel'])
 		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nchanges:\n{description}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
@@ -420,6 +425,16 @@ class development(commands.Cog):
 		for i in ['👍','👎']: await message.add_reaction(i)
 		await ctx.send('thank you for reporting this issue!')
 		general.logOutput(f'new issue {issue} in {ctx.guild.name} by {ctx.author.name}')
+	@cog_ext.cog_subcommand(base='reginald-dev',name='initguild',description='Initialize current guild.',guild_ids=[559830737889787924,786716046182187028])
+	@is_owner()
+	async def reginald_dev_initguild(self,ctx:SlashContext):
+		await ctx.send('initalizing guild...')
+		async for member in ctx.guild.fetch_members():
+			if str(member.id) in data['users'] and str(ctx.guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(ctx.guild.id))
+			else: data['users'].update({str(member.id):{'guilds':[str(ctx.guild.id)],'birthday':None}})
+			await ctx.channel.send(f'initalized {member.name}...')
+		save()
+		await ctx.channel.send('initialization complete.')
 class birthdays(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup birthday role')
@@ -432,45 +447,54 @@ class birthdays(commands.Cog):
 		general.logOutput(f'birthday role set to {role.name} in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='birthday',name='set',description='setup birthday role')
 	async def birthday_set(self,ctx:SlashContext,month,day):
-		birthday['birthdays'].update({str(ctx.author.id):f'{month.zfill(2)}/{day.zfill(2)}'})
-		await ctx.send(f"birthday successfully set to {birthday['birthdays'][str(ctx.author.id)]}")
-		general.logOutput(f"birthday set to {birthday['birthdays'][str(ctx.author.id)]} in {ctx.guild.name} by {ctx.author.name}")
+		data['users'][str(ctx.author.id)]['birthday'] = f'{month.zfill(2)}/{day.zfill(2)}'
+		await ctx.send(f"birthday successfully set to {data['users'][str(ctx.author.id)]['birthday']}")
+		general.logOutput(f"birthday set to {data['users'][str(ctx.author.id)]['birthday']} in {ctx.guild.name} by {ctx.author.name}")
 	@cog_ext.cog_subcommand(base='birthday',name='reset',description='reset your birthday')
 	async def birthday_remove(self,ctx:SlashContext):
-		birthday['birthdays'].update({str(ctx.author.id):None})
+		data['users'][str(ctx.author.id)]['birthday'] = None
 		await ctx.send(f'birthday successfully reset')
 		general.logOutput(f'birthday reset in {ctx.guild.name} by {ctx.author.name}')
 	async def birthdayLoop():
 		await client.wait_until_ready()
-		dayDone = False
 		oldDate = None
 		while client.is_ready:
 				await asyncio.sleep(300)
-				oldDate = date
 				date = datetime.now().strftime('%m/%Y')
-				if date in birthday['birthdays'] and not date == oldDate:
-					for guild in data['servers']:
-						server = await client.fetch_guild(int(guild))
-						if (data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayRole'] == 0) and data['servers'][guild]['config']['enableBirthdays']:
-							await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup in {server.name}.')
-							continue
-						if data['servers'][guild]['config']['enableBirthdays']:
-							for key,value in birthday['birthdays'].items():
-								if value == date:
-									user = await server.fetch_member(key)
-									user.add_roles(discord.Object(data['servers'][guild]['birthdayRole']))
-									await (await client.fetch_channel(data['servers'][guild]['birthdayChannel'])).send(f'Happy Birthday {user.mention}!')
-					dayDone = True
-				for users in birthday['active']:
-					print('wip')
+				if date != oldDate:
+					for user in data['users']:
+						if user == 'default': continue
+						if data['users'][user]['birthday'] == date:
+							for guild in data['users'][user]['guilds']:
+								server = await client.fetch_guild(int(guild))
+								if (data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayChannel'] == 0) and data['servers'][guild]['config']['enableBirthdays']:
+									await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup in {server.name}.')
+									continue
+								if data['servers'][guild]['config']['enableBirthdays']:
+									member = await server.fetch_member(user)
+									await member.add_roles(discord.Object(data['servers'][guild]['birthdayRole']))
+									data['variables']['activeBirthdays'].append(user)
+									await (await client.fetch_channel(data['servers'][guild]['birthdayChannel'])).send(f'Happy Birthday {member.mention}')
+					for user in data['variables']['activeBirthdays']:
+						if date != data['users'][user]['birthday']:
+							for guild in data['users'][user]['guilds']:
+								server = await client.fetch_guild(int(guild))
+								if (data['servers'][guild]['birthdayRole'] == 0 or data['servers'][guild]['birthdayChannel'] == 0) and data['servers'][guild]['config']['enableBirthdays']:
+									await (await server.fetch_member(server.owner_id)).send(f'error in birthday loop. please redo setup in {server.name}.')
+									continue
+								if data['servers'][guild]['config']['enableBirthdays']:
+									member = await server.fetch_member(user)
+									await member.remove_roles(discord.Object(data['servers'][guild]['birthdayRole']))
+					oldDate = date
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
-async def on_slash_command_error(ctx:SlashContext,error): await ctx.send(str(error),hidden=True); print(error)
+async def on_slash_command_error(ctx:SlashContext,error): await ctx.send(str(error),hidden=True); raise error
 @client.command(name='test')
 async def nonSlashTest(ctx): await ctx.channel.send('pp')
 
 client.loop.create_task(theDisciplineSticc.sticcLoop())
+client.loop.create_task(birthdays.birthdayLoop())
 client.add_cog(theDisciplineSticc(client))
 client.add_cog(serverMcstarter(client))
 client.add_cog(development(client))
