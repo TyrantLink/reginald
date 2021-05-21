@@ -1,4 +1,4 @@
-import os,re,json,logging,discord,asyncio
+import os,re,json,logging,discord,asyncio,requests
 from discord.ext.commands.core import guild_only
 from discord_slash.utils.manage_commands import create_option
 from mcrcon import MCRcon
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from mcstatus import MinecraftServer
 from discord.ext import commands
 from discord_slash import cog_ext,SlashCommand,SlashContext
-from discord.ext.commands import has_permissions,is_owner
+from discord.ext.commands import *
 
 def setupLogger(name,log_file,level=logging.WARNING):
 	logger = logging.getLogger(name)
@@ -26,6 +26,7 @@ except: data = json.loads(open('save.json.default','r').read())
 serverStarted=False
 sizes={2:'MBs',3:'GBs'}
 mainDirectory = os.getcwd()
+testingServer=[844127424526680084]
 hypixelKey=os.getenv('hypixelKey')
 serverQuery=os.getenv('serverQuery')
 servers=json.loads(open('servers.json','r').read())
@@ -34,15 +35,23 @@ sentLog=setupLogger('sent log','logs/messages/sent.log')
 editedLog=setupLogger('edited log','logs/messages/edited.log')
 deletedLog=setupLogger('deleted log','logs/messages/deleted.log')
 valueConverter={'True':True,'False':False,'true':True,'false':False}
-bannedVariables=['__file__','qa','userqa','godqa','hypixelKey','servers']
+bannedVariables=['__file__','qa','userqa','godqa','fileqa','hypixelKey','servers','bannedVariables']
 splitters=["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
 qa=json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']; fileqa = qa['fileqa']
 mc=MCRcon(os.getenv('mcRconHost'),os.getenv('mcRconPassword'),int(os.getenv('mcRconPort')))
 client=commands.Bot(command_prefix=('reginald!','reg!','r!'),case_insensitive=True,help_command=None,owner_id=250797109022818305,intents=discord.Intents.all())
 slash=SlashCommand(client)
 
-def adminOrOwner(): return (is_owner() or has_permissions(administrator=True))
-def modOrOwner(): return (is_owner() or has_permissions(manage_server=True))
+def adminOrOwner():
+	async def perms(ctx):
+		if ctx.author.id == client.owner_id or ctx.author.guild_permissions.administrator: return True
+		raise Exception('You are not an admin.')
+	return check(perms)
+def modOrOwner():
+	async def perms(ctx):
+		if ctx.author.id == client.owner_id or ctx.author.guild_permissions.manage_server: return True
+		raise Exception('You are not an admin.')
+	return check(perms)
 def save(): json.dump(data,open('save.json','w+'),indent=2)
 
 class serverMcstarter(commands.Cog):
@@ -61,12 +70,12 @@ class serverMcstarter(commands.Cog):
 		else: await ctx.send('error starting server.'); return
 		await ctx.send('it should be up.')
 		general.logOutput(f'starting server {server} in {ctx.guild.name} by {ctx.author.name}')
-	@cog_ext.cog_subcommand(base='minecraft',name='stop',description='stops active minecraft server.')
+	@cog_ext.cog_subcommand(base='minecraft',name='stop',description='stops active minecraft server. (\'-f\' requires admin)')
 	async def stop(self,ctx:SlashContext,args=None):
-		if args == '-f' and not adminOrOwner():
-			if MinecraftServer.lookup(serverQuery).query().players.online > 0: await ctx.send('no, fuck you, there are people online.'); return False
+		if MinecraftServer.lookup(serverQuery).query().players.online > 0:
+			if not (args == '-f' and adminOrOwner()): await ctx.send('no, fuck you, there are people online.'); return
 		try: mc.connect(); mc.command('stop'); mc.disconnect(); serverStarted = False; await client.change_presence(activity=discord.Game('Server Stopped')); await ctx.send('stopping server.')
-		except: await ctx.send('failed to shutdown server.'); return False
+		except: await ctx.send('failed to shutdown server.'); return
 		general.logOutput(f'stopping server in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='minecraft',name='cmd',description='runs command on the active minecraft server.')
 	@is_owner()
@@ -117,7 +126,7 @@ class theDisciplineSticc(commands.Cog):
 							continue
 						if data['servers'][guild]['config']['enableTalkingStick']: await theDisciplineSticc.rollTalkingStick(guild)
 					copytree(f'{os.getcwd()}\\logs',f'{os.getcwd()}\\backups\\logs\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S")}')
-	@cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc.')
+	@cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc. (requires admin)')
 	@adminOrOwner()
 	async def setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
 		if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send(embed=discord.Embed(title='The Talking Stick is not enabled on this server.',color=0x69ff69)); return
@@ -125,7 +134,7 @@ class theDisciplineSticc(commands.Cog):
 		data['servers'][str(ctx.guild.id)]['tsChannel'] = channel.id
 		await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'role: <@&{role.id}>\n\nchannel: <#{channel.id}>',color=0x69ff69))
 		general.logOutput(f'talking stick setup in {ctx.guild.name} by {ctx.author.name}')
-	@cog_ext.cog_subcommand(base='sticc',name='reroll',description='reroll the talking sticc')
+	@cog_ext.cog_subcommand(base='sticc',name='reroll',description='reroll the talking sticc. (requires admin)')
 	@adminOrOwner()
 	async def reroll(self,ctx:SlashContext):
 		if not data['servers'][str(ctx.guild.id)]['config']['enableTalkingStick']: await ctx.send(embed=discord.Embed(title='The Talking Stick is not enabled on this server.',color=0x69ff69)); return
@@ -201,7 +210,7 @@ class command(commands.Cog):
 		await ctx.send(f"successfully set {variable} to {data['botConfig'][variable]}")
 		save()
 		general.logOutput(f'bot config {variable} set to {str(value)} in {ctx.guild.name} by {ctx.author.name}')
-	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='set',description='set variables for the bot',options=[create_option('variable','see current value with /config server list',3,True,list(data['defaultServer']['config'].keys())),create_option('value','bool or int',3,True)])
+	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='set',description='set variables for the bot. (requires admin)',options=[create_option('variable','see current value with /config server list',3,True,list(data['defaultServer']['config'].keys())),create_option('value','bool or int',3,True)])
 	@adminOrOwner()
 	async def config_server_set(self,ctx:SlashContext,variable,value):
 		if variable == 'maxRolls' and int(value) > 32768: await ctx.send('maxRolls cannot be higher than 32768!'); return
@@ -228,17 +237,16 @@ class command(commands.Cog):
 	async def config_bot_list(self,ctx:SlashContext):
 		await ctx.send(embed=discord.Embed(title='Config:',description='\n'.join([f"{i}:{data['botConfig'][i]}" for i in data['botConfig']]),color=0x69ff69))
 		general.logOutput(f'bot config list requested in {ctx.guild.name} by {ctx.author.name}')
-	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='list',description='list config variables.')
+	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='list',description='list config variables. (requires moderator)')
 	@modOrOwner()
 	async def config_server_list(self,ctx:SlashContext):
 		await ctx.send(embed=discord.Embed(title='Config:',description='\n'.join([f"{i}:{data['servers'][str(ctx.guild.id)]['config'][i]}" for i in data['servers'][str(ctx.guild.id)]['config']]),color=0x69ff69))
 		general.logOutput(f'server config list requested in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_slash(name='exec',description='execute any python command on host computer.')
 	@is_owner()
-	async def execute(self,ctx,function):
-		try: await ctx.send(eval((' '.join(function))))
-		except Exception as e: await ctx.send(e)
-		general.logOutput(f'{" ".join(function)} executed in {ctx.guild.name} by {ctx.author.name}')
+	async def execute(self,ctx:SlashContext,function):
+		await ctx.send(str(eval(function)),hidden=True)
+		general.logOutput(f'{function} executed in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_slash(name='roll',description='roll with modifiers')
 	async def roll(self,ctx:SlashContext,dice:int,sides:int,modifiers:int=0):
 		try: maxRoll = data['servers'][str(ctx.guild.id)]['config']['maxRoll']
@@ -293,7 +301,7 @@ class command(commands.Cog):
 		thank you, all hail reginald.""",color=0x69ff69)
 		await ctx.send(embed=embed)
 		general.logOutput(f'reginald info requested in {ctx.guild.name} by {ctx.author.name}')
-	@cog_ext.cog_subcommand(base='reginald',name='ignore',description='adds or removes user to reginald ignore list (auto responses, dadBot, talking stick rolls, etc.)',
+	@cog_ext.cog_subcommand(base='reginald',name='ignore',description='adds or removes user to reginald ignore list. (requires admin)',
 	options=[create_option('mode','mode',3,True,['add','remove']),create_option('user','user',6,True)])
 	@adminOrOwner()
 	async def reginald_ignore(self,ctx:SlashContext,mode,user:discord.User):
@@ -309,6 +317,33 @@ class command(commands.Cog):
 				await ctx.send(f"successfully removed {user.name} from ignore list.")
 		data['servers'][str(ctx.guild.id)]['ignore'] = ignoreList
 		general.logOutput(f'{user.name} added to ignore list in {ctx.guild.name} by {ctx.author.name}')
+	@cog_ext.cog_slash(name='zano',description='calculate zano stats',guild_ids=testingServer)
+	async def zanoCalc(self,ctx:SlashContext,hashrate:float,holdings:float):
+		try: exchRate = float(json.loads(requests.get('https://api.coingecko.com/api/v3/coins/zano').text)['market_data']['current_price']['usd']); zanoExplorer = json.loads(requests.get('https://explorer.zano.org/api/get_info/4294967295').text)['result']
+		except: await ctx.send('failed to fetch exchange rate',hidden=True); return
+		hashrate = float(hashrate); holdings = float(holdings)
+		response = []
+		response.append(f'Your hashrate: {hashrate} MH/s')
+		response.append(f'Your holdings: {holdings} Zano')
+		hashrate = hashrate*1000000
+		posDiff = int(zanoExplorer['pos_difficulty'])
+		networkHash = int(zanoExplorer['current_network_hashrate_350'])
+		timeToBlock = round(100/(hashrate/networkHash*100/2),2)
+		zanoDay = round(1440/(100/(hashrate/networkHash*100)),3)/2
+		usdDay = round(1440/(100/(hashrate/networkHash*100))*exchRate,3)/2
+		response.append(f'Network hashrate: {round(networkHash/1000000000,3)} GH/s')
+		response.append(f'Zano price: ${format(exchRate,".3f")}')
+		response.append(f'Chance of mining next block: {format(round(hashrate/networkHash*100/2,3),".3f")}%')
+		response.append(f'Est. time to mine block: {timeToBlock} minutes | {round(timeToBlock/60,2)} hours')
+		response.append(f'Est. PoS Earnings: {round(holdings*720/(posDiff/1000000000000/100),5)} Zano')
+		response.append(f'Zano/day: {zanoDay}')
+		response.append(f'Zano/month: {round(zanoDay*30,3)}')
+		response.append(f'Zano/year: {round(zanoDay*365,3)}')
+		response.append(f'USD/day: ${usdDay}')
+		response.append(f'USD/month: ${round(usdDay*30,3)}')
+		response.append(f'USD/year: ${round(usdDay*365,3)}')
+		await ctx.send(embed=discord.Embed(title='Your Zano Stats:',description='\n'.join(response),color=0x69ff69))
+		general.logOutput(f'zano stats requested in {ctx.guild.name} by {ctx.author.name}')
 class msgLogger(commands.Cog):
 	def __init__(self,client): self.client = client
 	@commands.Cog.listener()
@@ -369,7 +404,7 @@ class general(commands.Cog):
 			else: data['users'].update({str(member.id):{'guilds':[str(guild.id)],'birthday':None}})
 		save()
 	@commands.Cog.listener()
-	async def on_member_join(member):
+	async def on_member_join(self,member):
 		if str(member.id) in data['users'] and str(member.guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(member.guild.id))
 		else: data['users'].update({str(member.id):{'guilds':[str(member.guild.id)],'birthday':None}})
 		save()
@@ -391,7 +426,7 @@ class general(commands.Cog):
 			if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
 	async def dadBot(ctx):
 		if ctx.author.bot or (ctx.author.id == client.owner_id and data['servers'][str(ctx.guild.id)]['config']['godExempt']): return
-		message = re.sub(r'<(@!|@)\d{18}>','{ping}',ctx.content)
+		message = re.sub(r'<(@!|@)\d{18}>','[REDACTED]',ctx.content)
 		for splitter in splitters:
 			split = message.split(splitter)
 			if len(split) > 1: break
@@ -405,14 +440,15 @@ class development(commands.Cog):
 	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=[844127424526680084])
 	@is_owner()
 	async def reginald_dev_commit(self,ctx:SlashContext,title,features,fixes,newversion:bool=True):
-		if newversion: data['information']['version'] += 0.01; version = data['information']['version']
-		features = '\n- '.join(features.split('\\n'))
-		fixes = '\n- '.join(fixes.split('\\n'))
+		if newversion: data['information']['version'] += 0.01
+		version = data['information']['version']
+		features = '- ' + '\n- '.join(features.split(r'\n'))
+		fixes = '- ' + '\n- '.join(fixes.split(r'\n'))
 		channel = await client.fetch_channel(data['information']['change-log-channel'])
 		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nfeatures:\n{features}\n\nfixes:\n{fixes}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
 		await message.publish()
 		await ctx.send('successfully pushed change.')
-		general.logOutput(f'pushed new commit in {ctx.guild.name} by {ctx.author.name}')
+		general.logOutput(f'new commit pushed in {ctx.guild.name} by {ctx.author.name}')
 	@cog_ext.cog_subcommand(base='reginald',name='suggest',description='suggest a feature for reginald')
 	async def reginald_suggest(self,ctx:SlashContext,suggestion,details):
 		channel = await client.fetch_channel(data['information']['suggestions-channel'])
@@ -443,7 +479,7 @@ class development(commands.Cog):
 		await ctx.send('@everyone')
 class birthdays(commands.Cog):
 	def __init__(self,client): self.client = client
-	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup birthday role')
+	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup auto birthdays. (requires admin)')
 	@adminOrOwner()
 	@guild_only()
 	async def birthday_setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
@@ -497,7 +533,7 @@ class birthdays(commands.Cog):
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
-async def on_slash_command_error(ctx:SlashContext,error): await ctx.send(str(error),hidden=True); raise error
+async def on_slash_command_error(ctx:SlashContext,error): await ctx.send(str(error),hidden=True); raise(error)
 @client.command(name='test')
 async def nonSlashTest(ctx): await ctx.channel.send('pp')
 
