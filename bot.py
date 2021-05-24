@@ -53,6 +53,7 @@ def modOrOwner():
 		raise Exception('You are not an admin.')
 	return check(perms)
 def save(): json.dump(data,open('save.json','w+'),indent=2)
+def add_cogs(cogs:list): [client.add_cog(cog(client)) for cog in cogs]
 
 class serverMcstarter(commands.Cog):
 	def __init__(self,client): self.client = client
@@ -173,7 +174,8 @@ class theDisciplineSticc(commands.Cog):
 			if int(rand) in data['servers'][guild]['ignore']: continue
 			try: oldStik = await server.fetch_member(data['servers'][guild]['currentStik'])
 			except discord.errors.NotFound: oldStik = None
-			newStik = await server.fetch_member(rand)
+			try: newStik = await server.fetch_member(rand)
+			except: continue
 			try:
 				if not (rand == data['servers'][guild]['currentStik'] or (newStik.bot and oldStik.bot)): break
 			except AttributeError:
@@ -261,7 +263,7 @@ class command(commands.Cog):
 		general.logOutput(f'roll {dice}d{sides}+{modifiers} requested',ctx)
 	@cog_ext.cog_subcommand(base='leaderboard',name='messages',description='leaderboard of total messages sent.')
 	async def leaderboard_messages(self,ctx:SlashContext):
-		data['variables']['messages'] = {key: value for key, value in sorted(data['variables']['messages'].items(), key=lambda item: item[1],reverse=True)}
+		data['variables']['messages'] = {key:value for key,value in sorted(data['variables']['messages'].items(),key=lambda item: item[1],reverse=True)}
 		names = []
 		index = 1
 		await ctx.defer()
@@ -317,6 +319,27 @@ class command(commands.Cog):
 				await ctx.send(f"successfully removed {user.name} from ignore list.")
 		data['servers'][str(ctx.guild.id)]['ignore'] = ignoreList
 		general.logOutput(f'{user.name} added to ignore list',ctx)
+	@cog_ext.cog_subcommand(base='reginald',subcommand_group='request',name='data',description='request your user data.')
+	async def reginald_request_data(self,ctx:SlashContext):
+		userdata = data['users'][str(ctx.author.id)]
+		response = []
+		response.append(f'known guilds: {userdata["guilds"]}')
+		response.append(f'birthday: {userdata["birthday"]}')
+		await ctx.send(embed=discord.Embed(title=f'{ctx.author.name}\'s data',description='\n\n'.join(response),color=0x69ff69),hidden=True)
+		general.logOutput(f'data requested',ctx)
+	@cog_ext.cog_subcommand(base='get',name='profile',description='get profile and information of a user.')
+	async def get_profile(self,ctx:SlashContext,user:discord.User):
+		description = []
+		description.append(f'creation date: {user.created_at.strftime("%m/%d/%Y %H:%M:%S")}')
+		description.append(f'display name: {user.display_name}')
+		guilds = ",\n- ".join([i.name for i in user.mutual_guilds])
+		description.append(f'mutual guilds:\n  -{guilds}')
+		description.append(f"birthday: {data['users'][str(user.id)]['birthday']}")
+		embed = discord.Embed(title=f'{user.name}\'s profile',description=f'id: {user.id}\nname: {user.name}\ndiscriminator: {user.discriminator}',color=0x69ff69)
+		embed.set_thumbnail(url=user.avatar_url_as(static_format='png',size=512))
+		embed.add_field(name='information:',value='\n'.join(description))
+		await ctx.send(embed=embed)
+		general.logOutput(f'profile of {user.name} requested',ctx)
 class msgLogger(commands.Cog):
 	def __init__(self,client): self.client = client
 	@commands.Cog.listener()
@@ -394,8 +417,9 @@ class general(commands.Cog):
 	async def autoResponse(ctx):
 		if data['servers'][str(ctx.guild.id)]['config']['enableAutoResponses'] and not ctx.author.bot:
 			if ctx.author.id == client.owner_id and ctx.content in userqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(userqa[ctx.content]); return
-			if ctx.author.id == client.owner_id and ctx.content in fileqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(file=discord.File(f'{os.getcwd()}\\memes\\{fileqa[ctx.content]}'))
+			if ctx.author.id == client.owner_id and ctx.content in fileqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(file=discord.File(f'{os.getcwd()}\\memes\\{fileqa[ctx.content]}')); return
 			if ctx.author.id != client.owner_id and ctx.content in userqa: await ctx.channel.send(userqa[ctx.content]); return
+			if ctx.author.id != client.owner_id and ctx.content in fileqa: await ctx.channel.send(file=discord.File(f'{os.getcwd()}\\memes\\{fileqa[ctx.content]}')); return
 			if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
 	async def dadBot(ctx):
 		if ctx.author.bot or (ctx.author.id == client.owner_id and data['servers'][str(ctx.guild.id)]['config']['godExempt']): return
@@ -404,7 +428,7 @@ class general(commands.Cog):
 			split = message.split(splitter)
 			if len(split) > 1: break
 		else: return
-		await ctx.channel.send(f"Hi {splitter.join(split[1:])}, {splitter}dad.")
+		await ctx.channel.send(re.sub('  ',' ',f"Hi {splitter.join(split[1:])}, {splitter}dad."))
 	def logOutput(log,ctx):
 		try: log = f'{log} in {ctx.guild.name} by {ctx.author.name}'
 		except: log = f'{log} in DMs with {ctx.author.name}'
@@ -414,7 +438,7 @@ class development(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=[844127424526680084])
 	@is_owner()
-	async def reginald_dev_commit(self,ctx:SlashContext,title,features,fixes,newversion:bool=True):
+	async def reginald_dev_commit(self,ctx:SlashContext,title,features='None',fixes='None',newversion:bool=True):
 		if newversion: data['information']['version'] += 0.01
 		version = data['information']['version']
 		features = '- ' + '\n- '.join(features.split(r'\n'))
@@ -426,15 +450,17 @@ class development(commands.Cog):
 		general.logOutput(f'new commit pushed',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='suggest',description='suggest a feature for reginald')
 	async def reginald_suggest(self,ctx:SlashContext,suggestion,details):
+		data['information']['suggestCount'] += 1
 		channel = await client.fetch_channel(data['information']['suggestions-channel'])
-		message = await channel.send(embed=discord.Embed(title=suggestion,description=f'suggested by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=f"{suggestion} #{data['information']['suggestCount']}",description=f'suggested by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
 		for i in ['👍','👎']: await message.add_reaction(i)
 		await ctx.send('thank you for your suggestion!')
 		general.logOutput(f'new suggestion {suggestion}',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='issue',description='report an issue with reginald')
 	async def reginald_issue(self,ctx:SlashContext,issue,details):
+		data['information']['issueCount'] += 1
 		channel = await client.fetch_channel(data['information']['issues-channel'])
-		message = await channel.send(embed=discord.Embed(title=issue,description=f'suggested by: {ctx.author.mention}\n\nhow to replicate:\n{details}',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=f"{issue} #{data['information']['issueCount']}",description=f'suggested by: {ctx.author.mention}\n\nhow to replicate:\n{details}',color=0x69ff69))
 		for i in ['👍','👎']: await message.add_reaction(i)
 		await ctx.send('thank you for reporting this issue!')
 		general.logOutput(f'new issue {issue}',ctx)
@@ -451,7 +477,7 @@ class development(commands.Cog):
 	@cog_ext.cog_subcommand(base='reginald-dev',name='test',description='used for testing',guild_ids=[786716046182187028])
 	@is_owner()
 	async def reginald_dev_test(self,ctx:SlashContext):
-		await ctx.send('[this is a hyperlink test](<https://www.youtube.com/watch?v=dQw4w9WgXcQ>)')
+		await ctx.send('<:loggers:811661951494651925>')
 class birthdays(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup auto birthdays. (requires admin)')
@@ -462,9 +488,10 @@ class birthdays(commands.Cog):
 		data['servers'][str(ctx.guild.id)]['birthdayRole'] = role.id
 		data['servers'][str(ctx.guild.id)]['birthdayChannel'] = channel.id
 		await ctx.send(f'successfully set birthday role to {role.mention} and birthday channel to {channel.mention}')
-		general.logOutput(f'birthday role set to {role.name}',ctx)
+		general.logOutput(f'birthday role set to {role.name} and birthday channel set to {channel.name}',ctx)
 	@cog_ext.cog_subcommand(base='birthday',name='set',description='setup birthday role')
 	async def birthday_set(self,ctx:SlashContext,month,day):
+		if int(month)>12 or int(day)>31: await ctx.send('invalid date.'); return
 		data['users'][str(ctx.author.id)]['birthday'] = f'{month.zfill(2)}/{day.zfill(2)}'
 		await ctx.send(f"birthday successfully set to {data['users'][str(ctx.author.id)]['birthday']}")
 		general.logOutput(f"birthday set to {data['users'][str(ctx.author.id)]['birthday']}",ctx)
@@ -515,18 +542,20 @@ class crypto(commands.Cog):
 		response = []
 		response.append(f'Your hashrate: {hashrate} MH/s')
 		response.append(f'Your holdings: {holdings} Zano')
-		response.append(f'Your USD: ${holdings*exchRate}')
+		response.append(f'Your USD: ${round(holdings*exchRate,3)}')
 		hashrate = hashrate*1000000
 		posDiff = int(zanoExplorer['pos_difficulty'])
 		networkHash = int(zanoExplorer['current_network_hashrate_350'])
 		timeToBlock = round(100/(hashrate/networkHash*100/2),2)
 		zanoDay = round(1440/(100/(hashrate/networkHash*100)),3)/2
 		usdDay = round(1440/(100/(hashrate/networkHash*100))*exchRate,3)/2
+		posEarnings = holdings*720/(posDiff/1000000000000/100)
 		response.append(f'Network hashrate: {round(networkHash/1000000000,3)} GH/s')
 		response.append(f'Zano price: ${format(exchRate,".3f")}')
 		response.append(f'Chance of mining next block: {format(round(hashrate/networkHash*100/2,3),".3f")}%')
-		response.append(f'Est. time to mine block: {timeToBlock} minutes | {round(timeToBlock/60,2)} hours')
-		response.append(f'Est. PoS Earnings: {round(holdings*720/(posDiff/1000000000000/100),5)} Zano')
+		response.append(f'Est. time to PoW mine block: {timeToBlock} minutes | {round(timeToBlock/60,2)} hours')
+		response.append(f'Est. time to PoS mine block: {round(100/posEarnings,2)} minutes | {round(100/posEarnings/60,2)} hours')
+		response.append(f'Est. PoS Earnings: {round(posEarnings,5)} Zano')
 		response.append(f'Zano/day: {zanoDay}')
 		response.append(f'Zano/month: {round(zanoDay*30,3)}')
 		response.append(f'Zano/year: {round(zanoDay*365,3)}')
@@ -536,7 +565,8 @@ class crypto(commands.Cog):
 		await ctx.send(embed=discord.Embed(title='Your Zano Stats:',description='\n'.join(response),color=0x69ff69))
 		general.logOutput(f'zano stats requested',ctx)
 	@cog_ext.cog_subcommand(base='crypto',name='exchange',description='get worth of currency in usd.')
-	async def crypto_exchange(self,ctx:SlashContext,coin,amount):
+	async def crypto_exchange(self,ctx:SlashContext,coin:str,amount:int):
+		if '..' in coin: await ctx.send('invalid coin name.'); return
 		try: exchRate = float(json.loads(requests.get(f'https://api.coingecko.com/api/v3/coins/{coin.lower()}').text)['market_data']['current_price']['usd'])
 		except: await ctx.send('failed to fetch exchange rate. is the coin name correct?',hidden=True); return
 		await ctx.send(f'{format(float(amount),",.3f")} {coin} = ${format(exchRate*int(amount),",.3f")} USD')
@@ -550,14 +580,7 @@ async def nonSlashTest(ctx): await ctx.channel.send('pp')
 
 client.loop.create_task(theDisciplineSticc.sticcLoop())
 client.loop.create_task(birthdays.birthdayLoop())
-client.add_cog(theDisciplineSticc(client))
-client.add_cog(serverMcstarter(client))
-client.add_cog(development(client))
-client.add_cog(birthdays(client))
-client.add_cog(msgLogger(client))
-client.add_cog(command(client))
-client.add_cog(general(client))
-client.add_cog(crypto(client))
+add_cogs([theDisciplineSticc,serverMcstarter,development,birthdays,msgLogger,command,general,crypto])
 
 try: client.run(os.getenv('token'))
-finally: save()
+finally: save(); print('closing bot.')
