@@ -31,9 +31,9 @@ hypixelKey=os.getenv('hypixelKey')
 serverQuery=os.getenv('serverQuery')
 servers=json.loads(open('servers.json','r').read())
 outputLog=setupLogger('output log','logs/output.log')
-sentLog=setupLogger('sent log','logs/messages/sent.log')
-editedLog=setupLogger('edited log','logs/messages/edited.log')
-deletedLog=setupLogger('deleted log','logs/messages/deleted.log')
+# sentLog=setupLogger('sent log','logs/messages/sent.log')
+# editedLog=setupLogger('edited log','logs/messages/edited.log')
+# deletedLog=setupLogger('deleted log','logs/messages/deleted.log')
 valueConverter={'True':True,'False':False,'true':True,'false':False}
 bannedVariables=['__file__','qa','userqa','godqa','fileqa','hypixelKey','servers','bannedVariables']
 splitters=["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
@@ -366,26 +366,35 @@ class msgLogger(commands.Cog):
 			case 's':
 				log=f'{ctx.author} sent "{ctx.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} sent "{ctx.content}"')
-				sentLog.warning(log)
+				globals()[f'{ctx.guild.id}_sent'].warning(log)
 			case 'd':
 				log=f'"{ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} - "{ctx.content}" was deleted')
-				deletedLog.warning(log)
+				globals()[f'{ctx.guild.id}_delete'].warning(log)
 			case 'b':
 				log=f'"{ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} - "{ctx.content}" was bulk deleted')
-				deletedLog.warning(log)
+				globals()[f'{ctx.guild.id}_delete'].warning(log)
 			case 'e':
 				if ctx.content == ctx2.content: return
 				log=f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} edited "{ctx.content}" into {ctx2.content}')
-				editedLog.warning(log)
+				globals()[f'{ctx.guild.id}_edit'].warning(log)
+	def messageLoggers(guild):
+		while True:
+			try:
+				globals()[f'{guild}_sent']=setupLogger(f'{guild}_sent',f'logs/messages/{guild}/sent.log')
+				globals()[f'{guild}_edit']=setupLogger(f'{guild}_edit',f'logs/messages/{guild}/edited.log')
+				globals()[f'{guild}_delete']=setupLogger(f'{guild}_delete',f'logs/messages/{guild}/deleted.log')
+			except: os.mkdir(f'logs/messages/{guild}'); continue
+			break
 class general(commands.Cog):
 	def __init__(self,client): self.client = client
 	@commands.Cog.listener()
 	async def on_ready(self):
+		for guild in client.guilds: msgLogger.messageLoggers(guild.id)
 		outputLog.warning(f"{client.user.name} connected to Discord!")
 		print(f"{client.user.name} connected to Discord!\n")
 		await client.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='the collective one.'))
@@ -444,7 +453,7 @@ class development(commands.Cog):
 		features = '- ' + '\n- '.join(features.split(r'\n'))
 		fixes = '- ' + '\n- '.join(fixes.split(r'\n'))
 		channel = await client.fetch_channel(data['information']['change-log-channel'])
-		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nfeatures:\n{features}\n\nfixes:\n{fixes}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nfeatures:\n{features}\n\nfixes / changes:\n{fixes}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
 		await message.publish()
 		await ctx.send('successfully pushed change.')
 		general.logOutput(f'new commit pushed',ctx)
