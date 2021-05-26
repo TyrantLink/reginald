@@ -23,6 +23,9 @@ def setupLogger(name,log_file,level=logging.WARNING):
 load_dotenv()
 try: data = json.loads(open('save.json','r').read())
 except: data = json.loads(open('save.json.default','r').read())
+questions = json.loads(open('questions.json','r').read())
+quotes = json.loads(open('quotes.json','r').read())
+issues = json.loads(open('issues.json','r').read())
 serverStarted=False
 sizes={2:'MBs',3:'GBs'}
 mainDirectory = os.getcwd()
@@ -31,9 +34,6 @@ hypixelKey=os.getenv('hypixelKey')
 serverQuery=os.getenv('serverQuery')
 servers=json.loads(open('servers.json','r').read())
 outputLog=setupLogger('output log','logs/output.log')
-# sentLog=setupLogger('sent log','logs/messages/sent.log')
-# editedLog=setupLogger('edited log','logs/messages/edited.log')
-# deletedLog=setupLogger('deleted log','logs/messages/deleted.log')
 valueConverter={'True':True,'False':False,'true':True,'false':False}
 bannedVariables=['__file__','qa','userqa','godqa','fileqa','hypixelKey','servers','bannedVariables']
 splitters=["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
@@ -115,18 +115,6 @@ class serverMcstarter(commands.Cog):
 		return f'{round(size,3)} {sizes[sizeType]}'
 class theDisciplineSticc(commands.Cog):
 	def __init__(self,client): self.client = client
-	async def sticcLoop():
-		await client.wait_until_ready()
-		while client.is_ready:
-				await asyncio.sleep(60)
-				if datetime.now().strftime("%H:%M") == '09:00':
-					for guild in data['servers']:
-						if (data['servers'][guild]['tsRole'] == 0 or data['servers'][guild]['tsChannel'] == 0) and data['servers'][guild]['config']['enableTalkingStick']:
-							server = await client.fetch_guild(int(guild))
-							await (await server.fetch_member(server.owner_id)).send(f'error in talking stick. please redo setup in {server.name}.')
-							continue
-						if data['servers'][guild]['config']['enableTalkingStick']: await theDisciplineSticc.rollTalkingStick(guild)
-					copytree(f'{os.getcwd()}\\logs',f'{os.getcwd()}\\backups\\logs\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S")}')
 	@cog_ext.cog_subcommand(base='sticc',name='setup',description='setup the discipline sticc. (requires admin)')
 	@adminOrOwner()
 	async def setup(self,ctx:SlashContext,role:discord.Role,channel:discord.TextChannel):
@@ -244,11 +232,6 @@ class command(commands.Cog):
 	async def config_server_list(self,ctx:SlashContext):
 		await ctx.send(embed=discord.Embed(title='Config:',description='\n'.join([f"{i}:{data['servers'][str(ctx.guild.id)]['config'][i]}" for i in data['servers'][str(ctx.guild.id)]['config']]),color=0x69ff69))
 		general.logOutput(f'server config list requested',ctx)
-	@cog_ext.cog_slash(name='exec',description='execute any python command on host computer.')
-	@is_owner()
-	async def execute(self,ctx:SlashContext,function):
-		await ctx.send(str(eval(function)),hidden=True)
-		general.logOutput(f'{function} executed',ctx)
 	@cog_ext.cog_slash(name='roll',description='roll with modifiers')
 	async def roll(self,ctx:SlashContext,dice:int,sides:int,modifiers:int=0):
 		try: maxRoll = data['servers'][str(ctx.guild.id)]['config']['maxRoll']
@@ -340,6 +323,19 @@ class command(commands.Cog):
 		embed.add_field(name='information:',value='\n'.join(description))
 		await ctx.send(embed=embed)
 		general.logOutput(f'profile of {user.name} requested',ctx)
+	@cog_ext.cog_subcommand(base='reginald',name='time',description='reginald can tell time.')
+	async def reginald_time(self,ctx:SlashContext):
+		await ctx.send(datetime.now().strftime("%H:%M:%S"))
+		general.logOutput(f'time requested',ctx)
+	@cog_ext.cog_subcommand(base='reginald',name='poll',description='run a poll')
+	async def reginald_poll(self,ctx:SlashContext,title,description,optiona,optionb,optionc=None,optiond=None):
+		options = ['🇦','🇧']
+		description = f'{description}\n\n🇦: {optiona}\n🇧: {optionb}'
+		if optionc != None: description = f'{description}\n🇨: {optionc}'; options.append('🇨')
+		if optiond != None: description = f'{description}\n🇩: {optiond}'; options.append('🇩')
+		message = await ctx.send(embed=discord.Embed(title=title,description=description))
+		for i in options: await message.add_reaction(i)
+		general.logOutput('poll created',ctx)
 class msgLogger(commands.Cog):
 	def __init__(self,client): self.client = client
 	@commands.Cog.listener()
@@ -362,26 +358,28 @@ class msgLogger(commands.Cog):
 			if author not in data['servers'][guild]['activeMembers'] and data['servers'][guild]['config']['enableTalkingStick']: data['servers'][guild]['activeMembers'].append(author)
 		save()
 	async def logMessages(ctx,type,ctx2=None,ext=''):
+		try: guildID = ctx.guild.id
+		except: guildID = 'DMs'
 		match type:
 			case 's':
 				log=f'{ctx.author} sent "{ctx.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} sent "{ctx.content}"')
-				globals()[f'{ctx.guild.id}_sent'].warning(log)
+				globals()[f'{guildID}_sent'].warning(log)
 			case 'd':
 				log=f'"{ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} - "{ctx.content}" was deleted')
-				globals()[f'{ctx.guild.id}_delete'].warning(log)
+				globals()[f'{guildID}_delete'].warning(log)
 			case 'b':
 				log=f'"{ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} - "{ctx.content}" was bulk deleted')
-				globals()[f'{ctx.guild.id}_delete'].warning(log)
+				globals()[f'{guildID}_delete'].warning(log)
 			case 'e':
 				if ctx.content == ctx2.content: return
 				log=f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				if data['botConfig']['msgToConsole'] and not (ctx.author.bot and not data['botConfig']['botToConsole']): print(f'{ctx.author.name} edited "{ctx.content}" into {ctx2.content}')
-				globals()[f'{ctx.guild.id}_edit'].warning(log)
+				globals()[f'{guildID}_edit'].warning(log)
 	def messageLoggers(guild):
 		while True:
 			try:
@@ -392,9 +390,27 @@ class msgLogger(commands.Cog):
 			break
 class general(commands.Cog):
 	def __init__(self,client): self.client = client
+	async def nineLoop():
+		await client.wait_until_ready()
+		while client.is_ready:
+				await asyncio.sleep(60)
+				if datetime.now().strftime("%H:%M") == '09:00':
+					for guild in data['servers']:
+						server = await client.fetch_guild(int(guild))
+						if (data['servers'][guild]['tsRole'] == 0 or data['servers'][guild]['tsChannel'] == 0) and data['servers'][guild]['config']['enableTalkingStick']:
+							await (await server.fetch_member(server.owner_id)).send(f'error in talking stick. please redo setup in {server.name}.')
+						elif data['servers'][guild]['config']['enableTalkingStick']: await theDisciplineSticc.rollTalkingStick(guild)
+						if data['servers'][guild]['qotdChannel'] == 0 and data['servers'][guild]['config']['enableQOTD']:
+							await (await server.fetch_member(server.owner_id)).send(f'error in QOTD. please redo setup in {server.name}.')
+						elif data['servers'][guild]['config']['enableQOTD']: await (await client.fetch_channel(data['servers'][guild]['qotdChannel'])).send(embed=discord.Embed(title='❓❔ Question of the Day ❔❓',description=questions[randint(0,len(questions))]))
+						if data['servers'][guild]['quotesChannel'] == 0 and data['servers'][guild]['config']['enableQuotes']:
+							await (await server.fetch_member(server.owner_id)).send(f'error in Quotes. please redo setup in {server.name}.')
+						elif data['servers'][guild]['config']['enableQuotes']: await (await client.fetch_channel(data['servers'][guild]['qotdChannel'])).send(quotes[randint(0,len(quotes))])
+					copytree(f'{os.getcwd()}\\logs',f'{os.getcwd()}\\backups\\logs\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S")}')
 	@commands.Cog.listener()
 	async def on_ready(self):
 		for guild in client.guilds: msgLogger.messageLoggers(guild.id)
+		msgLogger.messageLoggers('DMs')
 		outputLog.warning(f"{client.user.name} connected to Discord!")
 		print(f"{client.user.name} connected to Discord!\n")
 		await client.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='the collective one.'))
@@ -419,7 +435,7 @@ class general(commands.Cog):
 	@commands.Cog.listener()
 	async def on_message(self,ctx):
 		try: guild = data['servers'][str(ctx.guild.id)]
-		except AttributeError: guild=data['defaultServer']; return
+		except AttributeError: data['servers'][str(ctx.guild.id)]=data['defaultServer']; return
 		if ctx.author.id in guild['ignore'] or ctx.author == client.user: return
 		if guild['config']['enableAutoResponses'] and not ctx.author.bot: await general.autoResponse(ctx)
 		if guild['config']['enableDadBot']: await general.dadBot(ctx)
@@ -445,48 +461,56 @@ class general(commands.Cog):
 		if data['botConfig']['outputToConsole']: print(log)
 class development(commands.Cog):
 	def __init__(self,client): self.client = client
-	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=[844127424526680084])
+	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=testingServer)
 	@is_owner()
-	async def reginald_dev_commit(self,ctx:SlashContext,title,features='None',fixes='None',newversion:bool=True):
+	async def reginald_dev_commit(self,ctx:SlashContext,title,features='None',fixes='None',notes='None',newversion:bool=True,test:bool=False):
 		if newversion: data['information']['version'] += 0.01
 		version = data['information']['version']
 		features = '- ' + '\n- '.join(features.split(r'\n'))
 		fixes = '- ' + '\n- '.join(fixes.split(r'\n'))
-		channel = await client.fetch_channel(data['information']['change-log-channel'])
-		message = await channel.send(embed=discord.Embed(title=title,description=f'version: {version}\n\nfeatures:\n{features}\n\nfixes / changes:\n{fixes}\n\nthese features are new, remember to report bugs with /reginald issue',color=0x69ff69))
-		await message.publish()
+		notes = '- ' + '\n- '.join(notes.split(r'\n'))
+		channel = await client.fetch_channel(844133317041061899) if test else await client.fetch_channel(data['information']['change-log-channel'])
+		response = f'version: {version}\n\nfeatures:\n{features}\n\nfixes / changes:\n{fixes}\n\nnotes:\n{notes}\n\nthese features are new, remember to report bugs with /reginald issue'
+		for i in re.findall(r'issue\d+',response): response = re.sub(r'issue\d+',f"[issue#{i.split('issue')[1]}](<https://discord.com/channels/844127424526680084/844131633787699241/{data['variables']['issues'][int(i.split('issue')[1])-1]}>)",response,1)
+		for i in re.findall(r'suggestion\d+',response): response = re.sub(r'suggestion\d+',f"[suggestion#{i.split('suggestion')[1]}](<https://discord.com/channels/844127424526680084/844130469197250560/{data['variables']['suggestions'][int(i.split('suggestion')[1])-1]}>)",response,1)
+		message = await channel.send(embed=discord.Embed(title=title,description=response,color=0x69ff69))
+		if not test: await message.publish()
 		await ctx.send('successfully pushed change.')
 		general.logOutput(f'new commit pushed',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='suggest',description='suggest a feature for reginald')
 	async def reginald_suggest(self,ctx:SlashContext,suggestion,details):
+		await ctx.defer()
 		data['information']['suggestCount'] += 1
 		channel = await client.fetch_channel(data['information']['suggestions-channel'])
-		message = await channel.send(embed=discord.Embed(title=f"{suggestion} #{data['information']['suggestCount']}",description=f'suggested by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=f"{suggestion} | #{data['information']['suggestCount']}",description=f'suggested by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
 		for i in ['👍','👎']: await message.add_reaction(i)
 		await ctx.send('thank you for your suggestion!')
-		general.logOutput(f'new suggestion {suggestion}',ctx)
+		data['variables']['suggestions'].append(message.jump_url.split('/')[-1])
+		general.logOutput(f'new suggestion "{suggestion}"',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='issue',description='report an issue with reginald')
 	async def reginald_issue(self,ctx:SlashContext,issue,details):
+		await ctx.defer()
 		data['information']['issueCount'] += 1
 		channel = await client.fetch_channel(data['information']['issues-channel'])
-		message = await channel.send(embed=discord.Embed(title=f"{issue} #{data['information']['issueCount']}",description=f'suggested by: {ctx.author.mention}\n\nhow to replicate:\n{details}',color=0x69ff69))
+		message = await channel.send(embed=discord.Embed(title=f"{issue} | #{data['information']['issueCount']}",description=f'suggested by: {ctx.author.mention}\n\ninformation:\n{details}',color=0x69ff69))
 		for i in ['👍','👎']: await message.add_reaction(i)
+		data['variables']['issues'].append(message.jump_url.split('/')[-1])
 		await ctx.send('thank you for reporting this issue!')
 		general.logOutput(f'new issue {issue}',ctx)
-	@cog_ext.cog_subcommand(base='reginald-dev',name='initguild',description='Initialize current guild.',guild_ids=[559830737889787924,786716046182187028])
+	@cog_ext.cog_subcommand(base='reginald-dev',name='test',description='used for testing',guild_ids=[844127424526680084,786716046182187028])
 	@is_owner()
-	async def reginald_dev_initguild(self,ctx:SlashContext):
-		await ctx.send('initalizing guild...')
-		async for member in ctx.guild.fetch_members():
-			if str(member.id) in data['users'] and str(ctx.guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(ctx.guild.id))
-			else: data['users'].update({str(member.id):{'guilds':[str(ctx.guild.id)],'birthday':None}})
-			await ctx.channel.send(f'initalized {member.name}...')
-		save()
-		await ctx.channel.send('initialization complete.')
-	@cog_ext.cog_subcommand(base='reginald-dev',name='test',description='used for testing',guild_ids=[786716046182187028])
+	async def reginald_dev_test(self,ctx:SlashContext,message,link):
+		await ctx.send(f'[{message}](<{link}>)')
+	@cog_ext.cog_subcommand(base='reginald',name='exec',description='execute any python command on host computer.')
 	@is_owner()
-	async def reginald_dev_test(self,ctx:SlashContext):
-		await ctx.send('<:loggers:811661951494651925>')
+	async def reginald_dev_execute(self,ctx:SlashContext,function):
+		await ctx.send(str(eval(function)),hidden=True)
+		general.logOutput(f'{function} executed',ctx)
+	@cog_ext.cog_subcommand(base='reginald',name='asyncexec',description='execute any async python command on host computer.')
+	@is_owner()
+	async def reginald_dev_asyncExecute(self,ctx:SlashContext,function):
+		await ctx.send(str(await eval(function)),hidden=True)
+		general.logOutput(f'{function} executed',ctx)
 class birthdays(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='birthday',name='setup',description='setup auto birthdays. (requires admin)')
@@ -580,16 +604,39 @@ class crypto(commands.Cog):
 		except: await ctx.send('failed to fetch exchange rate. is the coin name correct?',hidden=True); return
 		await ctx.send(f'{format(float(amount),",.3f")} {coin} = ${format(exchRate*int(amount),",.3f")} USD')
 		general.logOutput(f'exchange rate for {amount} {coin}',ctx)
+class qotd(commands.Cog):
+	def __init__(self,client): self.client = client
+	@cog_ext.cog_subcommand(base='qotd',name='setup',description='setup QOTD')
+	async def qotd_setup(self,ctx:SlashContext,channel:discord.TextChannel):
+		if not data['servers'][str(ctx.guild.id)]['config']['enableQOTD']: await ctx.send(embed=discord.Embed(title='The QOTD is not enabled on this server.',color=0x69ff69)); return
+		data['servers'][str(ctx.guild.id)]['qotdChannel'] = channel.id
+		await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'channel: <#{channel.id}>',color=0x69ff69))
+		general.logOutput(f'qotd setup',ctx)
+	@cog_ext.cog_subcommand(base='qotd',name='add',description='add a custom question to QOTD')
+	async def qotd_add(self,ctx:SlashContext,question:str):
+		if not question.endswith('?'): await ctx.send('that is not a valid question!'); return
+		questions.append(question)
+		await ctx.send(f'successfully added `{question}` to the question pool.')
+class quote(commands.Cog):
+	def __init__(self,client): self.client = client
+	@cog_ext.cog_subcommand(base='quotes',name='setup',description='setup quotes')
+	async def quotes_setup(self,ctx:SlashContext,channel:discord.TextChannel):
+		await ctx.send('quotes are temporarily disabled until I actually have some.'); return
+		if not data['servers'][str(ctx.guild.id)]['config']['enableQuotes']: await ctx.send(embed=discord.Embed(title='Quotes are not enabled on this server.',color=0x69ff69)); return
+		data['servers'][str(ctx.guild.id)]['quoteChannel'] = channel.id
+		await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'channel: <#{channel.id}>',color=0x69ff69))
+		general.logOutput(f'quotes setup',ctx)
+
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
-async def on_slash_command_error(ctx:SlashContext,error): await ctx.send(str(error),hidden=True); print(error)
+async def on_slash_command_error(ctx:SlashContext,error): await ctx.send(str(error),hidden=True); raise(error)
 @client.command(name='test')
 async def nonSlashTest(ctx): await ctx.channel.send('pp')
 
-client.loop.create_task(theDisciplineSticc.sticcLoop())
+client.loop.create_task(general.nineLoop())
 client.loop.create_task(birthdays.birthdayLoop())
-add_cogs([theDisciplineSticc,serverMcstarter,development,birthdays,msgLogger,command,general,crypto])
+add_cogs([theDisciplineSticc,serverMcstarter,development,birthdays,msgLogger,command,general,crypto,qotd,quote])
 
 try: client.run(os.getenv('token'))
 finally: save(); print('closing bot.')
