@@ -186,7 +186,7 @@ class command(commands.Cog):
 	async def hello_reginald(self,ctx:SlashContext):
 		await ctx.send(file=discord.File('reginald.png'))
 		general.logOutput(f'said hi to reginald',ctx)
-	@cog_ext.cog_slash(name='clearidcache',description='clears ID cache variable')
+	@cog_ext.cog_subcommand(base='reginald',name='clearidcache',description='clears ID cache variable')
 	@is_owner()
 	async def clearIDcache(self,ctx:SlashContext):
 		data['variables']['idNameCache'] = {}
@@ -214,7 +214,7 @@ class command(commands.Cog):
 		if variable == 'enableTalkingStick' and value in valueConverter: await ctx.send('remember to do /sticc setup to enable the talking sticc.')
 		save()
 		general.logOutput(f'server config {variable} set to {str(value)}',ctx)
-	@cog_ext.cog_slash(name='reload',description='reloads save files')
+	@cog_ext.cog_subcommand(base='reginald',name='reload',description='reloads save files')
 	@is_owner()
 	async def reloadSaves(self,ctx:SlashContext):
 		global qa,userqa,godqa,fileqa,servers
@@ -232,7 +232,7 @@ class command(commands.Cog):
 	async def config_server_list(self,ctx:SlashContext):
 		await ctx.send(embed=discord.Embed(title='Config:',description='\n'.join([f"{i}:{data['servers'][str(ctx.guild.id)]['config'][i]}" for i in data['servers'][str(ctx.guild.id)]['config']]),color=0x69ff69))
 		general.logOutput(f'server config list requested',ctx)
-	@cog_ext.cog_slash(name='roll',description='roll with modifiers')
+	@cog_ext.cog_subcommand(base='reginald',name='roll',description='roll with modifiers')
 	async def roll(self,ctx:SlashContext,dice:int,sides:int,modifiers:int=0):
 		try: maxRoll = data['servers'][str(ctx.guild.id)]['config']['maxRoll']
 		except: maxRoll = 16384
@@ -471,8 +471,8 @@ class development(commands.Cog):
 		notes = '- ' + '\n- '.join(notes.split(r'\n'))
 		channel = await client.fetch_channel(844133317041061899) if test else await client.fetch_channel(data['information']['change-log-channel'])
 		response = f'version: {version}\n\nfeatures:\n{features}\n\nfixes / changes:\n{fixes}\n\nnotes:\n{notes}\n\nthese features are new, remember to report bugs with /reginald issue'
-		for i in re.findall(r'issue\d+',response): response = re.sub(r'issue\d+',f"[issue#{i.split('issue')[1]}](<https://discord.com/channels/844127424526680084/844131633787699241/{data['variables']['issues'][int(i.split('issue')[1])-1]}>)",response,1)
-		for i in re.findall(r'suggestion\d+',response): response = re.sub(r'suggestion\d+',f"[suggestion#{i.split('suggestion')[1]}](<https://discord.com/channels/844127424526680084/844130469197250560/{data['variables']['suggestions'][int(i.split('suggestion')[1])-1]}>)",response,1)
+		for i in re.findall(r'issue\d+',response): response = re.sub(r'issue\d+',f"([issue#{i.split('issue')[1]}](<https://discord.com/channels/844127424526680084/844131633787699241/{data['variables']['issues'][int(i.split('issue')[1])-1]}>))",response,1)
+		for i in re.findall(r'suggestion\d+',response): response = re.sub(r'suggestion\d+',f"([suggestion#{i.split('suggestion')[1]}](<https://discord.com/channels/844127424526680084/844130469197250560/{data['variables']['suggestions'][int(i.split('suggestion')[1])-1]}>))",response,1)
 		message = await channel.send(embed=discord.Embed(title=title,description=response,color=0x69ff69))
 		if not test: await message.publish()
 		await ctx.send('successfully pushed change.')
@@ -500,7 +500,7 @@ class development(commands.Cog):
 	@cog_ext.cog_subcommand(base='reginald-dev',name='test',description='used for testing',guild_ids=[844127424526680084,786716046182187028])
 	@is_owner()
 	async def reginald_dev_test(self,ctx:SlashContext,message,link):
-		await ctx.send(f'[{message}](<{link}>)')
+		await ctx.send(f'{message}')
 	@cog_ext.cog_subcommand(base='reginald',name='exec',description='execute any python command on host computer.')
 	@is_owner()
 	async def reginald_dev_execute(self,ctx:SlashContext,function):
