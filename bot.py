@@ -4,7 +4,7 @@ from discord_slash.utils.manage_commands import create_option
 from mcrcon import MCRcon
 from random import randint
 from shutil import copytree
-from time import time,sleep
+from time import time
 from datetime import datetime
 from dotenv import load_dotenv
 from mcstatus import MinecraftServer
@@ -35,7 +35,9 @@ serverQuery=os.getenv('serverQuery')
 servers=json.loads(open('servers.json','r').read())
 outputLog=setupLogger('output log','logs/output.log')
 valueConverter={'True':True,'False':False,'true':True,'false':False}
+activityList = {'Poker Night':755827207812677713,'Betrayal.io':773336526917861400,'YouTube Together':755600276941176913,'Fishington.io':814288819477020702,'Chess':832012586023256104}
 bannedVariables=['__file__','qa','userqa','godqa','fileqa','hypixelKey','servers','bannedVariables']
+eightBallResponses = ['It is certain','Without a doubt','You may rely on it','Yes definitely','It is decidedly so','As I see it, yes','Most likely','Yes','Outlook good','Signs point to yes','Reply hazy try again','Better not tell you now','Ask again later','Cannot predict now','Concentrate and ask again','Don’t count on it','Outlook not so good','My sources say no','Very doubtful','My reply is no']
 splitters=["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
 qa=json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']; fileqa = qa['fileqa']
 mc=MCRcon(os.getenv('mcRconHost'),os.getenv('mcRconPassword'),int(os.getenv('mcRconPort')))
@@ -54,11 +56,12 @@ def modOrOwner():
 	return check(perms)
 def save(): json.dump(data,open('save.json','w+'),indent=2)
 def add_cogs(cogs:list): [client.add_cog(cog(client)) for cog in cogs]
+# def load_extentions(extentions:list): [client.load_extension(f'classes.{extention}') for extention in extentions]
 
 class serverMcstarter(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='minecraft',name='start',description='starts a minecraft server.')
-	async def start(self,ctx:SlashContext,server):
+	async def start(self,ctx:SlashContext,server:str):
 		if serverStarted: return
 		try: os.chdir(servers[server]['directory'])
 		except: await ctx.send('server name error')
@@ -67,12 +70,12 @@ class serverMcstarter(commands.Cog):
 		await ctx.send('okay, it\'s starting.')
 		for i in range(data['servers'][str(ctx.guild.id)]['config']['maxServerStartTime']):
 			try: MinecraftServer.lookup(serverQuery).query().players.online; break
-			except: sleep(1)
+			except: asyncio.sleep(1)
 		else: await ctx.send('error starting server.'); return
 		await ctx.send('it should be up.')
 		general.logOutput(f'starting server {server}',ctx)
 	@cog_ext.cog_subcommand(base='minecraft',name='stop',description='stops active minecraft server. (\'-f\' requires admin)')
-	async def stop(self,ctx:SlashContext,args=None):
+	async def stop(self,ctx:SlashContext,args:str=None):
 		if MinecraftServer.lookup(serverQuery).query().players.online > 0:
 			if not (args == '-f' and adminOrOwner()): await ctx.send('no, fuck you, there are people online.'); return
 		try: mc.connect(); mc.command('stop'); mc.disconnect(); serverStarted = False; await client.change_presence(activity=discord.Game('Server Stopped')); await ctx.send('stopping server.')
@@ -80,14 +83,14 @@ class serverMcstarter(commands.Cog):
 		general.logOutput(f'stopping server',ctx)
 	@cog_ext.cog_subcommand(base='minecraft',name='cmd',description='runs command on the active minecraft server.')
 	@is_owner()
-	async def cmd(self,ctx:SlashContext,command):
+	async def cmd(self,ctx:SlashContext,command:str):
 		try: mc.connect(); response = mc.command(command); mc.disconnect()
 		except: await ctx.send('failed to send command'); return
 		try: await ctx.send(re.sub('§.','',response))
 		except: pass
 		general.logOutput(f'command {command} run',ctx)
 	@cog_ext.cog_subcommand(base='minecraft',name='info',description='lists info on given minecraft server.')
-	async def list_info(self,ctx:SlashContext,server):
+	async def minecraft_info(self,ctx:SlashContext,server:str):
 		info = []
 		try:
 			for i in servers[server]:
@@ -195,14 +198,14 @@ class command(commands.Cog):
 		general.logOutput(f'idNameCache cleared',ctx)
 	@cog_ext.cog_subcommand(base='config',subcommand_group='bot',name='set',description='set variables for the bot',options=[create_option('variable','see current value with /config bot list',3,True,list(data['botConfig'].keys())),create_option('value','bool or int',5,True)])
 	@is_owner()
-	async def config_bot_set(self,ctx:SlashContext,variable,value):
+	async def config_bot_set(self,ctx:SlashContext,variable:str,value:bool):
 		data['botConfig'][variable] = value
 		await ctx.send(f"successfully set {variable} to {data['botConfig'][variable]}")
 		save()
 		general.logOutput(f'bot config {variable} set to {str(value)}',ctx)
 	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='set',description='set variables for the bot. (requires admin)',options=[create_option('variable','see current value with /config server list',3,True,list(data['defaultServer']['config'].keys())),create_option('value','bool or int',3,True)])
 	@adminOrOwner()
-	async def config_server_set(self,ctx:SlashContext,variable,value):
+	async def config_server_set(self,ctx:SlashContext,variable:str,value:str):
 		if variable == 'maxRolls' and int(value) > 32768: await ctx.send('maxRolls cannot be higher than 32768!'); return
 		if value in valueConverter: value = valueConverter[value]
 		else:
@@ -257,16 +260,16 @@ class command(commands.Cog):
 		await ctx.send(embed=discord.Embed(title='Messages:',description='\n'.join(names),color=0x69ff69))
 		general.logOutput(f'message leaderboard requested',ctx)
 	@cog_ext.cog_subcommand(base='get',name='avatar',description='returns the avatar of given user')
-	async def get_avatar(self,ctx:SlashContext,user:discord.User,resolution=512):
+	async def get_avatar(self,ctx:SlashContext,user:discord.User,resolution:int=512):
 		if isinstance(user,int): user = await client.fetch_user(user)
-		await ctx.send(embed=discord.Embed(title=f'{user.name}\'s avatar',color=0x69ff69).set_image(url=str(user.avatar_url_as(format="png",size=int(resolution)))))
+		await ctx.send(embed=discord.Embed(title=f'{user.name}\'s avatar',color=0x69ff69).set_image(url=user.avatar.with_format('png').with_size(resolution).url))
 		general.logOutput(f'avater of {user.name} requested',ctx)
 	@cog_ext.cog_subcommand(base='get',name='guild',description='returns guild name from id')
-	async def get_guild(self,ctx:SlashContext,guild):
+	async def get_guild(self,ctx:SlashContext,guild:int):
 		await ctx.send((await client.fetch_guild(int(guild))).name)
 		general.logOutput(f'guild {guild} requested',ctx)
 	@cog_ext.cog_subcommand(base='get',name='name',description='returns user name from id')
-	async def get_name(self,ctx:SlashContext,user):
+	async def get_name(self,ctx:SlashContext,user:int):
 		await ctx.send((await client.fetch_user(int(user))).name)
 		general.logOutput(f'name of {user} requested',ctx)
 	@cog_ext.cog_subcommand(base='get',name='variable',description='returns variable')
@@ -289,7 +292,7 @@ class command(commands.Cog):
 	@cog_ext.cog_subcommand(base='reginald',name='ignore',description='adds or removes user to reginald ignore list. (requires admin)',
 	options=[create_option('mode','mode',3,True,['add','remove']),create_option('user','user',6,True)])
 	@adminOrOwner()
-	async def reginald_ignore(self,ctx:SlashContext,mode,user:discord.User):
+	async def reginald_ignore(self,ctx:SlashContext,mode:str,user:discord.User):
 		ignoreList = data['servers'][str(ctx.guild.id)]['ignore']
 		match mode:
 			case 'add':
@@ -319,23 +322,28 @@ class command(commands.Cog):
 		description.append(f'mutual guilds:\n  -{guilds}')
 		description.append(f"birthday: {data['users'][str(user.id)]['birthday']}")
 		embed = discord.Embed(title=f'{user.name}\'s profile',description=f'id: {user.id}\nname: {user.name}\ndiscriminator: {user.discriminator}',color=0x69ff69)
-		embed.set_thumbnail(url=user.avatar_url_as(static_format='png',size=512))
+		embed.set_thumbnail(url=user.avatar.with_format('png').with_size(512).url)
+		user.avatar_url_as()
 		embed.add_field(name='information:',value='\n'.join(description))
+		user.avatar.with_format('png')
 		await ctx.send(embed=embed)
 		general.logOutput(f'profile of {user.name} requested',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='time',description='reginald can tell time.')
 	async def reginald_time(self,ctx:SlashContext):
 		await ctx.send(datetime.now().strftime("%H:%M:%S"))
 		general.logOutput(f'time requested',ctx)
-	@cog_ext.cog_subcommand(base='reginald',name='poll',description='run a poll')
-	async def reginald_poll(self,ctx:SlashContext,title,description,optiona,optionb,optionc=None,optiond=None):
+	@cog_ext.cog_subcommand(base='reginald',name='poll',description='run a poll.')
+	async def reginald_poll(self,ctx:SlashContext,title:str,description:str,optiona:str,optionb:str,optionc=None,optiond=None,other:discord.TextChannel=None):
 		options = ['🇦','🇧']
 		description = f'{description}\n\n🇦: {optiona}\n🇧: {optionb}'
 		if optionc != None: description = f'{description}\n🇨: {optionc}'; options.append('🇨')
 		if optiond != None: description = f'{description}\n🇩: {optiond}'; options.append('🇩')
+		if other != None: description = f'{description}\nOther: please specify in {other}'; options.append('🇴')
 		message = await ctx.send(embed=discord.Embed(title=title,description=description))
 		for i in options: await message.add_reaction(i)
 		general.logOutput('poll created',ctx)
+	@cog_ext.cog_subcommand(base='reginald',name='8ball',description='ask the 8-ball a question.')
+	async def reginald_8ball(self,ctx:SlashContext,question:str): await ctx.send(eightBallResponses[randint(0,len(eightBallResponses)-1)])
 class msgLogger(commands.Cog):
 	def __init__(self,client): self.client = client
 	@commands.Cog.listener()
@@ -435,14 +443,14 @@ class general(commands.Cog):
 	@commands.Cog.listener()
 	async def on_message(self,ctx):
 		try: guild = data['servers'][str(ctx.guild.id)]
-		except AttributeError: data['servers'][str(ctx.guild.id)]=data['defaultServer']; return
+		except AttributeError: guild=data['defaultServer']; return
 		if ctx.author.id in guild['ignore'] or ctx.author == client.user: return
 		if guild['config']['enableAutoResponses'] and not ctx.author.bot: await general.autoResponse(ctx)
 		if guild['config']['enableDadBot']: await general.dadBot(ctx)
 	async def autoResponse(ctx):
 		if data['servers'][str(ctx.guild.id)]['config']['enableAutoResponses'] and not ctx.author.bot:
-			if ctx.author.id == client.owner_id and ctx.content in userqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(userqa[ctx.content]); return
-			if ctx.author.id == client.owner_id and ctx.content in fileqa and not data['servers'][str(ctx.guild.id)]['config']['godExempt']: await ctx.channel.send(file=discord.File(f'{os.getcwd()}\\memes\\{fileqa[ctx.content]}')); return
+			if ctx.author.id == client.owner_id and ctx.content in userqa and not data['botConfig']['godExempt']: await ctx.channel.send(userqa[ctx.content]); return
+			if ctx.author.id == client.owner_id and ctx.content in fileqa and not data['botConfig']['godExempt']: await ctx.channel.send(file=discord.File(f'{os.getcwd()}\\memes\\{fileqa[ctx.content]}')); return
 			if ctx.author.id != client.owner_id and ctx.content in userqa: await ctx.channel.send(userqa[ctx.content]); return
 			if ctx.author.id != client.owner_id and ctx.content in fileqa: await ctx.channel.send(file=discord.File(f'{os.getcwd()}\\memes\\{fileqa[ctx.content]}')); return
 			if ctx.author.id == client.owner_id and ctx.content in godqa: await ctx.channel.send(godqa[ctx.content])
@@ -463,14 +471,15 @@ class development(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='reginald-dev',name='commit',description='push a commit to the change-log channel',guild_ids=testingServer)
 	@is_owner()
-	async def reginald_dev_commit(self,ctx:SlashContext,title,features='None',fixes='None',notes='None',newversion:bool=True,test:bool=False):
-		if newversion: data['information']['version'] += 0.01
-		version = data['information']['version']
+	async def reginald_dev_commit(self,ctx:SlashContext,title:str,features:str='None',fixes:str='None',notes:str='None',newversion:bool=True,test:bool=False):
+		await ctx.defer()
+		if newversion: data['information']['version'] = round(data['information']['version']+0.01,2)
+		version = round(data['information']['version'],2)
 		features = '- ' + '\n- '.join(features.split(r'\n'))
 		fixes = '- ' + '\n- '.join(fixes.split(r'\n'))
 		notes = '- ' + '\n- '.join(notes.split(r'\n'))
 		channel = await client.fetch_channel(844133317041061899) if test else await client.fetch_channel(data['information']['change-log-channel'])
-		response = f'version: {version}\n\nfeatures:\n{features}\n\nfixes / changes:\n{fixes}\n\nnotes:\n{notes}\n\nthese features are new, remember to report bugs with /reginald issue'
+		response = f'version: {version}\n\nfeatures:\n{features}\n\nfixes / changes:\n{fixes}\n\nnotes:\n{notes}\n\nthese features are new, remember to report bugs with /reginald issue\ncommands may take up to an hour to update globally.\n[follow development](<https://discord.gg/4mteVXBDW7>)'
 		for i in re.findall(r'issue\d+',response): response = re.sub(r'issue\d+',f"([issue#{i.split('issue')[1]}](<https://discord.com/channels/844127424526680084/844131633787699241/{data['variables']['issues'][int(i.split('issue')[1])-1]}>))",response,1)
 		for i in re.findall(r'suggestion\d+',response): response = re.sub(r'suggestion\d+',f"([suggestion#{i.split('suggestion')[1]}](<https://discord.com/channels/844127424526680084/844130469197250560/{data['variables']['suggestions'][int(i.split('suggestion')[1])-1]}>))",response,1)
 		message = await channel.send(embed=discord.Embed(title=title,description=response,color=0x69ff69))
@@ -478,7 +487,7 @@ class development(commands.Cog):
 		await ctx.send('successfully pushed change.')
 		general.logOutput(f'new commit pushed',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='suggest',description='suggest a feature for reginald')
-	async def reginald_suggest(self,ctx:SlashContext,suggestion,details):
+	async def reginald_suggest(self,ctx:SlashContext,suggestion:str,details:str):
 		await ctx.defer()
 		data['information']['suggestCount'] += 1
 		channel = await client.fetch_channel(data['information']['suggestions-channel'])
@@ -488,7 +497,7 @@ class development(commands.Cog):
 		data['variables']['suggestions'].append(message.jump_url.split('/')[-1])
 		general.logOutput(f'new suggestion "{suggestion}"',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='issue',description='report an issue with reginald')
-	async def reginald_issue(self,ctx:SlashContext,issue,details):
+	async def reginald_issue(self,ctx:SlashContext,issue:str,details:str):
 		await ctx.defer()
 		data['information']['issueCount'] += 1
 		channel = await client.fetch_channel(data['information']['issues-channel'])
@@ -499,16 +508,16 @@ class development(commands.Cog):
 		general.logOutput(f'new issue {issue}',ctx)
 	@cog_ext.cog_subcommand(base='reginald-dev',name='test',description='used for testing',guild_ids=[844127424526680084,786716046182187028])
 	@is_owner()
-	async def reginald_dev_test(self,ctx:SlashContext,message,link):
+	async def reginald_dev_test(self,ctx:SlashContext,message:str):
 		await ctx.send(f'{message}')
 	@cog_ext.cog_subcommand(base='reginald',name='exec',description='execute any python command on host computer.')
 	@is_owner()
-	async def reginald_dev_execute(self,ctx:SlashContext,function):
+	async def reginald_dev_execute(self,ctx:SlashContext,function:str):
 		await ctx.send(str(eval(function)),hidden=True)
 		general.logOutput(f'{function} executed',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='asyncexec',description='execute any async python command on host computer.')
 	@is_owner()
-	async def reginald_dev_asyncExecute(self,ctx:SlashContext,function):
+	async def reginald_dev_asyncExecute(self,ctx:SlashContext,function:str):
 		await ctx.send(str(await eval(function)),hidden=True)
 		general.logOutput(f'{function} executed',ctx)
 class birthdays(commands.Cog):
@@ -523,7 +532,7 @@ class birthdays(commands.Cog):
 		await ctx.send(f'successfully set birthday role to {role.mention} and birthday channel to {channel.mention}')
 		general.logOutput(f'birthday role set to {role.name} and birthday channel set to {channel.name}',ctx)
 	@cog_ext.cog_subcommand(base='birthday',name='set',description='setup birthday role')
-	async def birthday_set(self,ctx:SlashContext,month,day):
+	async def birthday_set(self,ctx:SlashContext,month:int,day:int):
 		if int(month)>12 or int(day)>31: await ctx.send('invalid date.'); return
 		data['users'][str(ctx.author.id)]['birthday'] = f'{month.zfill(2)}/{day.zfill(2)}'
 		await ctx.send(f"birthday successfully set to {data['users'][str(ctx.author.id)]['birthday']}")
@@ -626,7 +635,14 @@ class quote(commands.Cog):
 		data['servers'][str(ctx.guild.id)]['quoteChannel'] = channel.id
 		await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'channel: <#{channel.id}>',color=0x69ff69))
 		general.logOutput(f'quotes setup',ctx)
-
+class activities(commands.Cog):
+	def __init__(self,client): self.client = client
+	@cog_ext.cog_subcommand(base='reginald',name='activites',description='invite an embedded application to a voice channel.',options=[create_option('activity','activity type',str,True,['Poker Night','Betrayal.io','YouTube Together','Fishington.io','Chess'])])
+	async def reginald_activities(self,ctx:SlashContext,activity:str):
+		activity_id = activityList[activity]
+		if not ctx.author.voice: await ctx.send('you must be in a voice channel to use this command!')
+		invite = await ctx.author.voice.channel.create_invite(target_type=2,target_application_id=activity_id,reason=f'{activity} created in {ctx.channel.name}')
+		await ctx.send(f'[Click to Open YouTube Together in {ctx.channel.name}](<{invite.url}>)')
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
 @client.event
@@ -636,7 +652,7 @@ async def nonSlashTest(ctx): await ctx.channel.send('pp')
 
 client.loop.create_task(general.nineLoop())
 client.loop.create_task(birthdays.birthdayLoop())
-add_cogs([theDisciplineSticc,serverMcstarter,development,birthdays,msgLogger,command,general,crypto,qotd,quote])
+add_cogs([theDisciplineSticc,serverMcstarter,development,birthdays,msgLogger,command,general,crypto,qotd,quote,activities])
 
 try: client.run(os.getenv('token'))
 finally: save(); print('closing bot.')
