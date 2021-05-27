@@ -3,6 +3,7 @@ from time import time
 from random import randint
 from shutil import copytree
 from datetime import datetime
+from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
 from discord.ext import commands
 from discord.ext.commands import *
@@ -10,6 +11,8 @@ from logger import outputLog,logOutput
 from discord_slash import cog_ext,SlashCommand,SlashContext
 
 load_dotenv()
+extentions = ['birthdays','cmds','config','crypto','devTools','fun','msgLogger','ricePurity','serverMcstarter','theDisciplineSticc','versus']
+
 try: data = json.loads(open('save.json','r').read())
 except: data = json.loads(open('save.json.default','r').read())
 quotes = json.loads(open('quotes.json','r').read())
@@ -18,8 +21,10 @@ hypixelKey=os.getenv('hypixelKey')
 serverQuery=os.getenv('serverQuery')
 servers=json.loads(open('servers.json','r').read())
 questions = json.loads(open('questions.json','r').read())
+qa = json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']; fileqa = qa['fileqa']
 bannedVariables=['__file__','qa','userqa','godqa','fileqa','hypixelKey','servers','bannedVariables']
 splitters=["I'm ","i'm "," im ",' Im ',"i am ","I am ","I'M "," IM ","I AM "]
+
 client=commands.Bot(command_prefix=('reginald!','reg!','r!'),case_insensitive=True,help_command=None,owner_id=250797109022818305,intents=discord.Intents.all())
 slash=SlashCommand(client)
 
@@ -33,7 +38,7 @@ def modOrOwner():
 		if ctx.author.id == client.owner_id or ctx.author.guild_permissions.manage_server: return True
 		raise Exception('You are not an admin.')
 	return check(perms)
-def save(): json.dump(data,open('save.json','w+'),indent=2)
+def save(file): json.dump(file,open('save.json','w+'),indent=2)
 def load_extentions(extentions:list): [client.load_extension(f'classes.{extention}') for extention in extentions]
 
 class general(commands.Cog):
@@ -52,12 +57,12 @@ class general(commands.Cog):
 		async for member in guild.fetch_members():
 			if str(member.id) in data['users'] and str(guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(guild.id))
 			else: data['users'].update({str(member.id):{'guilds':[str(guild.id)],'birthday':None}})
-		save()
+		save(data)
 	@commands.Cog.listener()
 	async def on_member_join(self,member):
 		if str(member.id) in data['users'] and str(member.guild.id) not in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].append(str(member.guild.id))
 		else: data['users'].update({str(member.id):{'guilds':[str(member.guild.id)],'birthday':None}})
-		save()
+		save(data)
 	@commands.Cog.listener()
 	async def on_member_leave(member):
 		if str(member.id) in data['users'] and str(member.guild.id) in data['users'][str(member.id)]['guilds']: data['users'][str(member.id)]['guilds'].remove(str(member.guild.id))
@@ -83,13 +88,21 @@ class general(commands.Cog):
 			if len(split) > 1: break
 		else: return
 		await ctx.channel.send(re.sub('  ',' ',f"Hi {splitter.join(split[1:])}, {splitter}dad."))
-	@cog_ext.cog_subcommand(base='reginald',name='reload',description='reloads save files')
+	@cog_ext.cog_subcommand(base='reginald',subcommand_group='reload',name='qa',description='reloads save files')
 	@is_owner()
-	async def reloadSaves(self,ctx:SlashContext):
-		global qa,userqa,godqa,fileqa,servers
+	async def reginald_reload_qa(self,ctx:SlashContext):
+		global qa,userqa,godqa,fileqa
 		qa = json.loads(open('qa.json','r').read()); userqa = qa['userqa']; godqa = qa['godqa']; fileqa = qa['fileqa']
 		await ctx.send('reload successful.')
-		logOutput(f'reloaded saves',ctx)
+		logOutput(f'reloaded qa',ctx)
+	@cog_ext.cog_subcommand(base='reginald',subcommand_group='reload',name='extention',description='reloads given extention',options=[create_option('extention','extention to reload',str,True,extentions),create_option('resync','do you want to resync commands',bool,False)])
+	@is_owner()
+	async def reginald_reload_extention(self,ctx:SlashContext,extention:str,resync:bool=False):
+		client.unload_extension(f'classes.{extention}')
+		client.load_extension(f'classes.{extention}')
+		await ctx.send(f'successfully reloaded {extention} extention')
+		if resync: await slash.sync_all_commands()
+		logOutput(f'reloaded {extention} extention',ctx)
 class loops():
 	async def nineLoop():
 		await client.wait_until_ready()
@@ -166,7 +179,7 @@ class loops():
 		log = f'stick rerolled to {newStik.name} in {server.name}'
 		outputLog.warning(log)
 		if data['botConfig']['stickToConsole']: print(log)
-		save()
+		save(data)
 
 @client.event
 async def on_command_error(ctx,error): await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
@@ -178,8 +191,7 @@ async def nonSlashTest(ctx): await ctx.channel.send('pp')
 client.loop.create_task(loops.nineLoop())
 client.loop.create_task(loops.birthdayLoop())
 client.add_cog(general(client))
-load_extentions(['birthdays','cmds','config','crypto','devTools','fun','msgLogger','serverMcstarter','theDisciplineSticc'])
-
+load_extentions(extentions)
 
 try: client.run(os.getenv('token'))
-finally: save(); print('closing bot.')
+finally: print('closing bot.')

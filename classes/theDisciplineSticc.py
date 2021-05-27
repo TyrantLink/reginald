@@ -1,9 +1,8 @@
 import discord
-from random import randint
 from logger import logOutput
 from discord.ext import commands
 from discord_slash import cog_ext,SlashContext
-from bot import adminOrOwner,data,client,save,outputLog
+from bot import adminOrOwner,data,client
 
 
 class theDisciplineSticc(commands.Cog):

@@ -14,7 +14,7 @@ class config(commands.Cog):
 	async def config_bot_set(self,ctx:SlashContext,variable:str,value:bool):
 		data['botConfig'][variable] = value
 		await ctx.send(f"successfully set {variable} to {data['botConfig'][variable]}")
-		save()
+		save(data)
 		logOutput(f'bot config {variable} set to {str(value)}',ctx)
 	@cog_ext.cog_subcommand(base='config',subcommand_group='server',name='set',description='set variables for the bot. (requires admin)',options=[create_option('variable','see current value with /config server list',3,True,list(data['defaultServer']['config'].keys())),create_option('value','bool or int',3,True)])
 	@adminOrOwner()
@@ -28,7 +28,7 @@ class config(commands.Cog):
 		else: await ctx.send('type error'); return
 		await ctx.send(f"successfully set {variable} to {data['servers'][str(ctx.guild.id)]['config'][variable]}")
 		if variable == 'enableTalkingStick' and value in valueConverter: await ctx.send('remember to do /sticc setup to enable the talking sticc.')
-		save()
+		save(data)
 		logOutput(f'server config {variable} set to {str(value)}',ctx)
 	@cog_ext.cog_subcommand(base='config',subcommand_group='bot',name='list',description='list config variables.')
 	@is_owner()

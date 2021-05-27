@@ -39,7 +39,7 @@ class msgLogger(commands.Cog):
 		else: data['variables']['messages'].update({author:1})
 		if guild != None:
 			if author not in data['servers'][guild]['activeMembers'] and data['servers'][guild]['config']['enableTalkingStick']: data['servers'][guild]['activeMembers'].append(author)
-		save()
+		save(data)
 	async def logMessages(ctx,type,ctx2=None,ext=''):
 		try: guildID = ctx.guild.id
 		except: guildID = 'DMs'

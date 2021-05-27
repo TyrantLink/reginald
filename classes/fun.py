@@ -4,7 +4,7 @@ from datetime import datetime
 from discord.ext import commands
 from discord_slash import cog_ext,SlashContext
 from bot import data,logOutput,client,questions
-from discord_slash.utils.manage_commands import create_option
+from discord_slash.utils.manage_commands import create_choice, create_option
 
 
 activityList = {'Poker Night':755827207812677713,'Betrayal.io':773336526917861400,'YouTube Together':755600276941176913,'Fishington.io':814288819477020702,'Chess':832012586023256104}
@@ -61,7 +61,9 @@ class fun(commands.Cog):
 		index = 1
 		await ctx.defer()
 		for member in data['variables']['messages']:
-			if member not in data['variables']['idNameCache']: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
+			if member not in data['variables']['idNameCache']:
+				try: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
+				except: print(member); continue
 			rank = str(index)+("th" if 4<=index%100<=20 else {1:"st",2:"nd",3:"rd"}.get(index%10, "th")); index += 1
 			names.append(f"{rank} - {data['variables']['idNameCache'][member]}: {data['variables']['messages'][member]}")
 		await ctx.send(embed=discord.Embed(title='Messages:',description='\n'.join(names),color=0x69ff69))
