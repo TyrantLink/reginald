@@ -1,4 +1,4 @@
-import logging,json
+import logging,data
 
 def setupLogger(name,log_file,level=logging.WARNING):
 	logger = logging.getLogger(name)
@@ -10,10 +10,9 @@ def setupLogger(name,log_file,level=logging.WARNING):
 	return logger
 
 outputLog=setupLogger('output log','logs/output.log')
-outputToConsole=json.loads(open('save.json','r').read())['botConfig']['outputToConsole']
 
 def logOutput(log,ctx):
-		try: log = f'{log} in {ctx.guild.name} by {ctx.author.name}'
-		except: log = f'{log} in DMs with {ctx.author.name}'
-		outputLog.warning(log)
-		if outputToConsole: print(log)
+	try: log = f'{log} in {ctx.guild.name} by {ctx.author.name}'
+	except: log = f'{log} in DMs with {ctx.author.name}'
+	outputLog.warning(log)
+	if data.read(['botConfig','outputToConsole']): print(log)

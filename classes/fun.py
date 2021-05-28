@@ -1,9 +1,10 @@
-import discord,json
+import discord,asyncio,data
 from random import randint
 from datetime import datetime
 from discord.ext import commands
+from discord.ext.commands.core import guild_only
 from discord_slash import cog_ext,SlashContext
-from bot import data,logOutput,client,questions
+from bot import logOutput,client,questions
 from discord_slash.utils.manage_commands import create_choice, create_option
 
 
@@ -20,17 +21,18 @@ class fun(commands.Cog):
 		if not ctx.author.voice: await ctx.send('you must be in a voice channel to use this command!')
 		invite = await ctx.author.voice.channel.create_invite(target_type=2,target_application_id=activity_id,reason=f'{activity} created in {ctx.channel.name}')
 		await ctx.send(f'[Click to Open YouTube Together in {ctx.channel.name}](<{invite.url}>)')
+
 	@cog_ext.cog_subcommand(base='quotes',name='setup',description='setup quotes')
 	async def quotes_setup(self,ctx:SlashContext,channel:discord.TextChannel):
-		await ctx.send('quotes are temporarily disabled until I actually have some.'); return
-		if not data['servers'][str(ctx.guild.id)]['config']['enableQuotes']: await ctx.send(embed=discord.Embed(title='Quotes are not enabled on this server.',color=0x69ff69)); return
-		data['servers'][str(ctx.guild.id)]['quoteChannel'] = channel.id
+		# await ctx.send('quotes are temporarily disabled until I actually have some.'); return
+		if not data.read(['servers',str(ctx.guild.id),'config','enableQuotes']): await ctx.send(embed=discord.Embed(title='Quotes are not enabled on this server.',color=0x69ff69)); return
+		data.write(channel.id,['servers',str(ctx.guild.id),'quoteChannel'])
 		await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'channel: <#{channel.id}>',color=0x69ff69))
 		logOutput(f'quotes setup',ctx)
 	@cog_ext.cog_subcommand(base='qotd',name='setup',description='setup QOTD')
 	async def qotd_setup(self,ctx:SlashContext,channel:discord.TextChannel):
-		if not data['servers'][str(ctx.guild.id)]['config']['enableQOTD']: await ctx.send(embed=discord.Embed(title='The QOTD is not enabled on this server.',color=0x69ff69)); return
-		data['servers'][str(ctx.guild.id)]['qotdChannel'] = channel.id
+		if not data.read(['servers',str(ctx.guild.id),'config','enableQOTD']): await ctx.send(embed=discord.Embed(title='The QOTD is not enabled on this server.',color=0x69ff69)); return
+		data.write(channel.id,['servers',str(ctx.guild.id),'qotdChannel'])
 		await ctx.send(embed=discord.Embed(title='Setup Complete.',description=f'channel: <#{channel.id}>',color=0x69ff69))
 		logOutput(f'qotd setup',ctx)
 	@cog_ext.cog_subcommand(base='qotd',name='add',description='add a custom question to QOTD')
@@ -44,7 +46,7 @@ class fun(commands.Cog):
 		logOutput(f'said hi to reginald',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='roll',description='roll with modifiers')
 	async def roll(self,ctx:SlashContext,dice:int,sides:int,modifiers:int=0):
-		try: maxRoll = data['servers'][str(ctx.guild.id)]['config']['maxRoll']
+		try: maxRoll = data.read(['servers',str(ctx.guild.id),'config','maxRoll'])
 		except: maxRoll = 16384
 		await ctx.defer()
 		if dice > maxRoll or sides > maxRoll or dice < 0 or sides < 0: await ctx.send(f'rolls must be between 0 and {maxRoll}!'); return
@@ -56,16 +58,17 @@ class fun(commands.Cog):
 		logOutput(f'roll {dice}d{sides}+{modifiers} requested',ctx)
 	@cog_ext.cog_subcommand(base='leaderboard',name='messages',description='leaderboard of total messages sent.')
 	async def leaderboard_messages(self,ctx:SlashContext):
-		data['variables']['messages'] = {key:value for key,value in sorted(data['variables']['messages'].items(),key=lambda item: item[1],reverse=True)}
+		data.write({key:value for key,value in sorted(data.read(['variables','messages']).items(),key=lambda item: item[1],reverse=True)},['variables','messages'])
 		names = []
 		index = 1
 		await ctx.defer()
-		for member in data['variables']['messages']:
-			if member not in data['variables']['idNameCache']:
-				try: data['variables']['idNameCache'][member] = (await client.fetch_user(member)).name
-				except: print(member); continue
+		for member in data.read(['variables','messages']):
+			if index > 50: break
+			if member not in data.read(['variables','idNameCache']):
+				try: data.write((await client.fetch_user(member)).name,['variables','idNameCache',member])
+				except: print(f'error on {member}'); continue
 			rank = str(index)+("th" if 4<=index%100<=20 else {1:"st",2:"nd",3:"rd"}.get(index%10, "th")); index += 1
-			names.append(f"{rank} - {data['variables']['idNameCache'][member]}: {data['variables']['messages'][member]}")
+			names.append(f"{rank} - {data.read(['variables','idNameCache',member])}: {data.read(['variables','messages',member])}")
 		await ctx.send(embed=discord.Embed(title='Messages:',description='\n'.join(names),color=0x69ff69))
 		logOutput(f'message leaderboard requested',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='time',description='reginald can tell time.')
@@ -86,5 +89,14 @@ class fun(commands.Cog):
 	async def reginald_8ball(self,ctx:SlashContext,question:str):
 		await ctx.send(eightBallResponses[randint(0,len(eightBallResponses)-1)])
 		logOutput('8ball rolled',ctx)
-
+	@cog_ext.cog_subcommand(base='reginald',name='timer',description='start a timer')
+	async def reginald_timer(self,ctx:SlashContext,label,seconds):
+		await ctx.send(f'timer {label} for {seconds} seconds started')
+		await asyncio.sleep(seconds)
+		await ctx.channel.send(f'{ctx.author.name}\'s timer {label} for {seconds} seconds is over.')
+	@cog_ext.cog_subcommand(base='temp',name='timer',description='start a timer',guild_ids=[847421655320100894])
+	async def reginald_timer(self,ctx:SlashContext,label:str,seconds:int):
+		await ctx.send(f'timer {label} for {seconds} seconds started')
+		await asyncio.sleep(seconds)
+		await ctx.channel.send(f'{ctx.author.name}\'s timer "{label}" for {seconds} seconds is over.')
 def setup(client): client.add_cog(fun(client))

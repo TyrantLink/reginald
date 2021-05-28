@@ -1,10 +1,7 @@
-
-
-
-import discord
+import discord,data
 from discord.ext import commands
 from discord_slash import cog_ext,SlashContext
-from bot import data,logOutput,client,adminOrOwner
+from bot import logOutput,client,adminOrOwner
 from discord_slash.utils.manage_commands import create_option
 
 class cmds(commands.Cog):
@@ -35,7 +32,7 @@ class cmds(commands.Cog):
 	options=[create_option('mode','mode',3,True,['add','remove']),create_option('user','user',6,True)])
 	@adminOrOwner()
 	async def reginald_ignore(self,ctx:SlashContext,mode:str,user:discord.User):
-		ignoreList = data['servers'][str(ctx.guild.id)]['ignore']
+		ignoreList = data.read(['servers',str(ctx.guild.id),'ignore'])
 		match mode:
 			case 'add':
 				if user.id in ignoreList: await ctx.send('this user is already on the ignore list!'); return
@@ -45,11 +42,11 @@ class cmds(commands.Cog):
 				if user.id not in ignoreList: await ctx.send('this user is not on the ignore list!'); return
 				ignoreList.remove(user.id)
 				await ctx.send(f"successfully removed {user.name} from ignore list.")
-		data['servers'][str(ctx.guild.id)]['ignore'] = ignoreList
+		data.write(ignoreList,['servers',str(ctx.guild.id),'ignore'])
 		logOutput(f'{user.name} added to ignore list',ctx)
 	@cog_ext.cog_subcommand(base='reginald',subcommand_group='request',name='data',description='request your user data.')
 	async def reginald_request_data(self,ctx:SlashContext):
-		userdata = data['users'][str(ctx.author.id)]
+		userdata = data.read(['users',str(ctx.author.id)])
 		response = []
 		response.append(f'known guilds: {userdata["guilds"]}')
 		response.append(f'birthday: {userdata["birthday"]}')
@@ -62,8 +59,8 @@ class cmds(commands.Cog):
 		description.append(f'display name: {user.display_name}')
 		guilds = ",\n- ".join([i.name for i in user.mutual_guilds])
 		description.append(f'mutual guilds:\n  - {guilds}')
-		description.append(f"birthday: {data['users'][str(user.id)]['birthday']}")
-		description.append(f"rice purity score: hidden" if data['users'][str(user.id)]['ricePurityScore'].startswith('h') else f"rice purity score: {data['users'][str(user.id)]['ricePurityScore']}")
+		description.append(f"birthday: {data.read(['users',str(user.id),'birthday'])}")
+		description.append(f"rice purity score: hidden" if data.read(['users',str(user.id),'ricePurityScore']).startswith('h') else f"rice purity score: {data.read(['users',str(user.id),'ricePurityScore'])}")
 		embed = discord.Embed(title=f'{user.name}\'s profile',description=f'id: {user.id}\nname: {user.name}\ndiscriminator: {user.discriminator}',color=0x69ff69)
 		embed.set_thumbnail(url=user.avatar.with_format('png').with_size(512).url)
 		embed.add_field(name='information:',value='\n'.join(description))

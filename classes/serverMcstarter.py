@@ -1,9 +1,9 @@
-import discord,os,json,re,asyncio
+import discord,os,json,re,asyncio,data
 from mcrcon import MCRcon
 from discord.ext import commands
 from mcstatus import MinecraftServer
 from discord.ext.commands import is_owner
-from bot import adminOrOwner,data,logOutput
+from bot import adminOrOwner,logOutput
 from discord_slash import cog_ext,SlashContext
 
 serverStarted = False
@@ -23,7 +23,7 @@ class serverMcstarter(commands.Cog):
 		os.startfile('botStart.bat')
 		os.chdir(mainDirectory)
 		await ctx.send('okay, it\'s starting.')
-		for i in range(data['servers'][str(ctx.guild.id)]['config']['maxServerStartTime']):
+		for i in range(data.read(['servers',str(ctx.guild.id),'config','maxServerStartTime'])):
 			try: MinecraftServer.lookup(serverQuery).query().players.online; break
 			except: asyncio.sleep(1)
 		else: await ctx.send('error starting server.'); return

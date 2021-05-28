@@ -1,7 +1,7 @@
-import discord,json
+import discord,json,data
 from discord.ext import commands
-from discord.ext.commands.core import dm_only, guild_only
-from bot import client,logOutput,data,save
+from discord.ext.commands.core import guild_only
+from bot import client,logOutput
 from discord_slash import cog_ext,SlashContext
 from discord_buttons import DiscordButton, Button, ButtonStyle, InteractionType
 
@@ -16,24 +16,25 @@ class ricePurity(commands.Cog):
 	async def ricepurity_test(self,ctx:SlashContext):
 		await ctx.send('starting rice purity test...')
 		channel = await client.fetch_channel(ctx.channel_id)
-		message = await channel.send('Do you want to take the rice purity test?',buttons=ynButtons)
-		answer = await ddb.wait_for_button_click(message,timeout=60)
+		message = await channel.send(f'{ctx.author.name}\nDo you want to take the rice purity test?',buttons=ynButtons)
+		try: answer = await ddb.wait_for_button_click(message,None,60)
+		except: await channel.send('test timed out'); return
 		if answer.button.label == 'No': await message.edit('THEN WHY\'D YOU RUN THE COMMAND?'); await answer.respond(); return
 		index = 1
 		score = 100
 		answers = []
 		for question in riceData['test']:
-			await message.edit(f'{index}. {question}')
+			await message.edit(f'{ctx.author.name}\n{index}. {question}')
 			await answer.respond()
-			answer = await ddb.wait_for_button_click(message)
+			try: answer = await ddb.wait_for_button_click(message,None,60)
+			except: await channel.send('test timed out'); return
 			if index == 101 and answer.button.label == 'Yes': score = f'h{score}'; continue
 			match answer.button.label:
 				case 'Yes': answers.append(1); score -= 1
 				case 'No': answers.append(0)
 			index += 1
 		await answer.respond()
-		data['users'][str(ctx.author.id)]['ricePurityScore'] = str(score)
-		save(data)
+		data.write(str(score),['users',str(ctx.author.id),'ricePurityScore'])
 		riceData['results'][str(ctx.author.id)] = answers
 		json.dump(riceData,open('ricePurity.json','w+',encoding='utf-8'),indent=2)
 		await message.edit(f'Thank you for taking the rice purity test. Your score is {score}',supress=True)
