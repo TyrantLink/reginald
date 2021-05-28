@@ -6,28 +6,26 @@ from discord_slash import cog_ext,SlashContext
 from discord_buttons import DiscordButton, Button, ButtonStyle, InteractionType
 
 ddb = DiscordButton(client)
-testingServer=[844127424526680084]
+testingServers=[844127424526680084,786716046182187028,617569794987786270]
 
 class devTools(commands.Cog):
 	def __init__(self,client): self.client = client	
-	@cog_ext.cog_subcommand(base='dev',name='commit',description='push a commit to the change-log channel',guild_ids=testingServer)
+	@cog_ext.cog_subcommand(base='dev',name='commit',description='push a commit to the change-log channel',guild_ids=testingServers)
 	@is_owner()
 	async def reginald_dev_commit(self,ctx:SlashContext,title:str,features:str=None,fixes:str=None,notes:str=None,newversion:bool=True,test:bool=False):
 		await ctx.defer()
-		version = data.read(['information','version'])
-		if newversion: version += 0.01
-		version = round(version,2)
+		if newversion: data.math('+',0.01,['information','version'])
+		version = round(data.read(['information','version']),2)
 		channel = await client.fetch_channel(844133317041061899) if test else await client.fetch_channel(data.read(['information','change-log-channel']))
 		response = f'version: {format(version,".2f")}\n\n'
 		if features != None: features = '- ' + '\n- '.join(features.split(r'\n')); response += f'features:\n{features}\n\n'
 		if fixes != None: fixes = '- ' + '\n- '.join(fixes.split(r'\n')); response += f'fixes / changes:\n{fixes}\n\n'
 		if notes != None: notes = '- ' + '\n- '.join(notes.split(r'\n')); response += f'notes:\n{notes}\n\n'
-		response += f'these features are new, remember to report bugs with /reginald issue\ncommands may take up to an hour to update globally.\n[follow development](<https://discord.gg/4mteVXBDW7>)'
+		response += f'these features are new, remember to report bugs with /reginald issue\ncommands may take up to an hour to update globally.\n[development server](<https://discord.gg/4mteVXBDW7>)'
 		for i in re.findall(r'issue\d+',response): response = re.sub(r'issue\d+',f"([issue#{i.split('issue')[1]}](<https://discord.com/channels/844127424526680084/844131633787699241/{data.read(['variables','issues',int(i.split('issue')[1])-1])}>))",response,1)
 		for i in re.findall(r'suggestion\d+',response): response = re.sub(r'suggestion\d+',f"([suggestion#{i.split('suggestion')[1]}](<https://discord.com/channels/844127424526680084/844130469197250560/{data.read(['variables','suggestions',int(i.split('suggestion')[1])-1])}>))",response,1)
 		message = await channel.send(embed=discord.Embed(title=title,description=response,color=0x69ff69))
 		if not test: await message.publish()
-		data.write(version,['information','version'])
 		await ctx.send('successfully pushed change.')
 		logOutput(f'new commit pushed',ctx)
 	@cog_ext.cog_subcommand(base='reginald',name='suggest',description='suggest a feature for reginald')
@@ -55,7 +53,7 @@ class devTools(commands.Cog):
 		data.write(issueCount,['information','issueCount'])
 		await ctx.send('thank you for reporting this issue!')
 		logOutput(f'new issue {issue}',ctx)
-	@cog_ext.cog_subcommand(base='dev',name='test',description='used for testing',guild_ids=[844127424526680084,786716046182187028])
+	@cog_ext.cog_subcommand(base='dev',name='test',description='used for testing',guild_ids=testingServers)
 	@is_owner()
 	async def reginald_dev_test(self,ctx:SlashContext,message:str):
 		await ctx.send(message)
@@ -75,5 +73,9 @@ class devTools(commands.Cog):
 		data.write({},['variables','idNameCache'])
 		await ctx.send('successfully cleared ID cache')
 		logOutput(f'idNameCache cleared',ctx)
-
+	@cog_ext.cog_subcommand(base='dev',name='fsave',description='force save to save.json',guild_ids=testingServers)
+	@is_owner()
+	async def dev_fsave(self,ctx:SlashContext):
+		data.save()
+		await ctx.send('successfully saved.')
 def setup(client): client.add_cog(devTools(client))

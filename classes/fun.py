@@ -4,7 +4,7 @@ from datetime import datetime
 from discord.ext import commands
 from discord.ext.commands.core import guild_only
 from discord_slash import cog_ext,SlashContext
-from bot import logOutput,client,questions
+from bot import adminOrOwner, logOutput,client,questions
 from discord_slash.utils.manage_commands import create_choice, create_option
 
 
@@ -15,13 +15,23 @@ eightBallResponses = ['It is certain','Without a doubt','You may rely on it','Ye
 
 class fun(commands.Cog):
 	def __init__(self,client): self.client = client
-	@cog_ext.cog_subcommand(base='reginald',name='activites',description='invite an embedded application to a voice channel.',options=[create_option('activity','activity type',str,True,['Poker Night','Betrayal.io','YouTube Together','Fishington.io','Chess'])])
+	@cog_ext.cog_subcommand(base='reginald',name='activites',description='invite an embedded application to a voice channel.',options=[create_option('activity','activity type',str,True,list(activityList.keys()))])
 	async def reginald_activities(self,ctx:SlashContext,activity:str):
 		activity_id = activityList[activity]
 		if not ctx.author.voice: await ctx.send('you must be in a voice channel to use this command!')
-		invite = await ctx.author.voice.channel.create_invite(target_type=2,target_application_id=activity_id,reason=f'{activity} created in {ctx.channel.name}')
-		await ctx.send(f'[Click to Open YouTube Together in {ctx.channel.name}](<{invite.url}>)')
-
+		try: cache = data.read(['variables','activities',str(ctx.author.voice.channel.id)])
+		except: data.write({},['variables','activities',str(ctx.author.voice.channel.id)]); cache = data.read(['variables','activities',str(ctx.author.voice.channel.id)])
+		if str(activity_id) in cache: await ctx.send(f'[Click to Open {activity} in {ctx.author.voice.channel.name}](<https://discord.gg/{cache[str(activity_id)]}>)')
+		else:
+			invite = await ctx.author.voice.channel.create_invite(target_type=2,target_application_id=activity_id,reason=f'{activity} created in {ctx.channel.name}')
+			data.write(invite.code,['variables','activities',str(ctx.author.voice.channel.id),str(activity_id)])
+			await ctx.send(f'[Click to Open {activity} in {ctx.channel.name}](<https://discord.gg/{invite.code}>)')
+	@cog_ext.cog_subcommand(base='reginald',name='activity_clear',description='clear activity cache if an invite was deleted.')
+	@adminOrOwner()
+	async def reginald_activity_clear(self,ctx:SlashContext):
+		if not ctx.author.voice: await ctx.send('you must be in a voice channel to use this command!')
+		data.write({},['variables','activities',str(ctx.author.voice.channel.id)])
+		await ctx.send(f'successfully cleared activity cache for {ctx.author.voice.channel.mention}')
 	@cog_ext.cog_subcommand(base='quotes',name='setup',description='setup quotes')
 	async def quotes_setup(self,ctx:SlashContext,channel:discord.TextChannel):
 		# await ctx.send('quotes are temporarily disabled until I actually have some.'); return
@@ -94,9 +104,12 @@ class fun(commands.Cog):
 		await ctx.send(f'timer {label} for {seconds} seconds started')
 		await asyncio.sleep(seconds)
 		await ctx.channel.send(f'{ctx.author.name}\'s timer {label} for {seconds} seconds is over.')
-	@cog_ext.cog_subcommand(base='temp',name='timer',description='start a timer',guild_ids=[847421655320100894])
-	async def reginald_timer(self,ctx:SlashContext,label:str,seconds:int):
-		await ctx.send(f'timer {label} for {seconds} seconds started')
-		await asyncio.sleep(seconds)
-		await ctx.channel.send(f'{ctx.author.name}\'s timer "{label}" for {seconds} seconds is over.')
+	@cog_ext.cog_subcommand(base='reginald',name='color',description='generate a random color')
+	async def reginald_color(self,ctx:SlashContext):
+		color = hex(randint(0,16777215)).upper()
+		res = [f'#{color[2:]}']
+		res.append(f'R: {int(color[2:4],16)}')
+		res.append(f'G: {int(color[4:6],16)}')
+		res.append(f'B: {int(color[6:8],16)}')
+		await ctx.send(embed=discord.Embed(title='random color:',description='\n'.join(res),color=int(color,16)))
 def setup(client): client.add_cog(fun(client))

@@ -24,5 +24,5 @@ def action(action:str,value:Any,path:list):
 
 def math(operator:str,value:int|float,path:list):
   path = "['" + "']['".join(path) + "']"
-  if isinstance(value,int): exec(f'dataF{path} {operator}= {value}'); return True
+  if isinstance(value,(int,float)): exec(f'dataF{path} {operator}= {value}'); return True
   return False

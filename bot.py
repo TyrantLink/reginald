@@ -78,10 +78,12 @@ class general(commands.Cog):
 		if ctx.author.bot or (ctx.author.id == client.owner_id and data.read(['botConfig','godExempt'])): return
 		message = re.sub(r'<(@!|@)\d{18}>','[REDACTED]',ctx.content)
 		for splitter in splitters:
-			split = message.split(splitter)
-			if len(split) > 1: break
+			res = re.search(splitter,message,re.IGNORECASE)
+			if res == None: continue
+			if res.span()[0] == 0: resString = message.split(splitter)[1]; break
+			if message[res.span()[0]-1] == ' ': resString = message.split(splitter)[1]; break
 		else: return
-		await ctx.channel.send(re.sub('  ',' ',f"Hi {splitter.join(split[1:])}, {splitter}dad."))
+		await ctx.channel.send(re.sub('  ',' ',f'hi {resString}, {splitter} dad'))
 	@cog_ext.cog_subcommand(base='reginald',subcommand_group='reload',name='qa',description='reloads save files')
 	@is_owner()
 	async def reginald_reload_qa(self,ctx:SlashContext):
@@ -92,7 +94,9 @@ class general(commands.Cog):
 	@cog_ext.cog_subcommand(base='reginald',subcommand_group='reload',name='extention',description='reloads given extention',options=[create_option('extention','extention to reload',str,True,extentions),create_option('resync','do you want to resync commands',bool,False)])
 	@is_owner()
 	async def reginald_reload_extention(self,ctx:SlashContext,extention:str,resync:bool=False):
-		client.unload_extension(f'classes.{extention}')
+		await ctx.defer()
+		try: client.unload_extension(f'classes.{extention}')
+		except: pass
 		client.load_extension(f'classes.{extention}')
 		if resync: await slash.sync_all_commands()
 		await ctx.send(f'successfully reloaded {extention} extention')
