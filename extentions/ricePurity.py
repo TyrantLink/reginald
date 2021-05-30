@@ -3,11 +3,12 @@ from discord.ext import commands
 from discord.ext.commands.core import guild_only
 from bot import client,logOutput
 from discord_slash import cog_ext,SlashContext
-from discord_buttons import DiscordButton, Button, ButtonStyle, InteractionType
+from discord_buttons import DiscordButton, Button, ButtonStyle
 
-riceData = json.loads(open('ricePurity.json','r',encoding='utf-8').read())
+rice = data.load('ricePurity')
 ddb = DiscordButton(client)
 ynButtons = [Button(style=ButtonStyle.green, label="Yes"),Button(style=ButtonStyle.red, label="No")]
+save = data.load('save')
 
 class ricePurity(commands.Cog):
 	def __init__(self,client): self.client = client
@@ -23,7 +24,7 @@ class ricePurity(commands.Cog):
 		index = 1
 		score = 100
 		answers = []
-		for question in riceData['test']:
+		for question in rice.read(['test']):
 			await message.edit(f'{ctx.author.name}\n{index}. {question}')
 			await answer.respond()
 			try: answer = await ddb.wait_for_button_click(message,None,60)
@@ -34,10 +35,10 @@ class ricePurity(commands.Cog):
 				case 'No': answers.append(0)
 			index += 1
 		await answer.respond()
-		data.write(str(score),['users',str(ctx.author.id),'ricePurityScore'])
-		riceData['results'][str(ctx.author.id)] = answers
-		json.dump(riceData,open('ricePurity.json','w+',encoding='utf-8'),indent=2)
-		await message.edit(f'Thank you for taking the rice purity test. Your score is {score}',supress=True)
+		save.write(str(score),['users',str(ctx.author.id),'ricePurityScore'])
+		rice.write(answers,['results',str(ctx.author.id)])
+		rice.save()
+		await ctx.author.send(f'Thank you for taking the rice purity test. Your score is {score}')
 		logOutput('rice purity test taken',ctx)
 
 

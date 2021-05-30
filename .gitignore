@@ -1,7 +1,10 @@
 __pycache__/
 fileCache/
+backups/
 memes/
-test.py
+saves/
+logs/
+test*
 *.json
 *.log
 .env

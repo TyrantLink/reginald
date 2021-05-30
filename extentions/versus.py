@@ -1,4 +1,4 @@
-import asyncio
+import asyncio,data
 from os import device_encoding
 from random import randint
 import discord,json
@@ -10,6 +10,8 @@ from discord_slash.utils.manage_commands import create_choice, create_option
 
 versusData = json.loads(open('versus.json','r').read())
 def save(): json.dump(versusData,open('versus.json','w+'),indent=2)
+
+
 troubles = ["Need a Key!",
   "Safe Delivery...",
   "Price Adjustment",
@@ -47,14 +49,19 @@ class versus(commands.Cog):
   @cog_ext.cog_subcommand(base='versus',name='lifelines',description='list lifelines for given versus',options=[create_option('versus','pick a versus',str,True,list(versusData.keys()))],guild_ids=[847421655320100894])
   async def versus_lifelines(self,ctx:SlashContext,versus:str):
     await ctx.send(embed=discord.Embed(title=f'{versus} lifelines:',description='- ' + '\n- '.join([f'{lifeline}: {versusData[versus]["lifelines"][lifeline]}' for lifeline in versusData[versus]['lifelines']]),color=0x69ff69))
-    logOutput(f'{versus} lifelines requested')
+    logOutput(f'{versus} lifelines requested',ctx)
   @cog_ext.cog_subcommand(base='versus',name='lifeline',description='use a lifeline',options=[create_option('lifeline','choose a lifeline',str,True,list(versusData['TTYD-1']['lifelines'].keys()))],guild_ids=[847421655320100894])
   async def versus_lifeline(self,ctx:SlashContext,lifeline):
     if versusData['TTYD-1'][str(ctx.author.id)][lifeline] == 0: await ctx.send('you are out of that lifeline!'); return
     versusData['TTYD-1'][str(ctx.author.id)][lifeline] -= 1
     await ctx.send(f'{ctx.author.name} used {lifeline}')
     save()
-    logOutput(f'{lifeline} used')
+    logOutput(f'{lifeline} used',ctx)
     if lifeline == 'prepare for trouble': await ctx.channel.send(f'trouble: {troubles[randint(0,len(troubles)-1)]}')
     else: await asyncio.sleep(1800); await ctx.channel.send(f'{ctx.author.name}\'s lifeline ({lifeline}) is up!')
+  @cog_ext.cog_subcommand(base='versus',name='lifeline_count',description='show your number of lifelines',guild_ids=[847421655320100894])
+  async def versus_lifeline_count(self,ctx:SlashContext,user:discord.User=None):
+    if user == None: user = ctx.author
+    await ctx.send(embed=discord.Embed(title=f'{user.name}\'s lifelines:',description='- ' + '\n- '.join([f'{lifeline}: {versusData["TTYD-1"][str(user.id)][lifeline]}' for lifeline in versusData["TTYD-1"]['lifelines']]),color=0x69ff69))
+    logOutput(f'{user.name}\'s lifelines requested',ctx)
 def setup(client): client.add_cog(versus(client))

@@ -7,8 +7,11 @@ class crypto(commands.Cog):
 	def __init__(self,client): self.client = client
 	@cog_ext.cog_subcommand(base='crypto',subcommand_group='calculate',name='zano',description='calculate zano stats')
 	async def crypto_calculate_zano(self,ctx:SlashContext,hashrate:float,holdings:float):
-		try: exchRate = float(json.loads(requests.get('https://api.coingecko.com/api/v3/coins/zano').text)['market_data']['current_price']['usd']); zanoExplorer = json.loads(requests.get('https://explorer.zano.org/api/get_info/4294967295').text)['result']
+		await ctx.defer()
+		try: exchRate = float(json.loads(requests.get('https://api.coingecko.com/api/v3/coins/zano').text)['market_data']['current_price']['usd'])
 		except: await ctx.send('failed to fetch exchange rate',hidden=True); return
+		try: zanoExplorer = json.loads(requests.get('https://explorer.zano.org/api/get_info/4294967295').text)['result']
+		except: await ctx.send('failed to fetch network hashrate',hidden=True); return
 		hashrate = float(hashrate); holdings = float(holdings)
 		response = []
 		response.append(f'Your hashrate: {hashrate} MH/s')

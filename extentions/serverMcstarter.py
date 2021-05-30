@@ -6,11 +6,13 @@ from discord.ext.commands import is_owner
 from bot import adminOrOwner,logOutput
 from discord_slash import cog_ext,SlashContext
 
+
+save = data.load('save')
 serverStarted = False
 sizes={2:'MBs',3:'GBs'}
 mainDirectory = os.getcwd()
 serverQuery=os.getenv('serverQuery')
-servers=json.loads(open('servers.json','r').read())
+servers=data.load('servers')
 mc=MCRcon(os.getenv('mcRconHost'),os.getenv('mcRconPassword'),int(os.getenv('mcRconPort')))
 
 class serverMcstarter(commands.Cog):
@@ -18,12 +20,12 @@ class serverMcstarter(commands.Cog):
 	@cog_ext.cog_subcommand(base='minecraft',name='start',description='starts a minecraft server.')
 	async def start(self,ctx:SlashContext,server:str):
 		if serverStarted: return
-		try: os.chdir(servers[server]['directory'])
+		try: os.chdir(servers([server,'directory']))
 		except: await ctx.send('server name error')
 		os.startfile('botStart.bat')
 		os.chdir(mainDirectory)
 		await ctx.send('okay, it\'s starting.')
-		for i in range(data.read(['servers',str(ctx.guild.id),'config','maxServerStartTime'])):
+		for i in range(save.read(['servers',str(ctx.guild.id),'config','maxServerStartTime'])):
 			try: MinecraftServer.lookup(serverQuery).query().players.online; break
 			except: asyncio.sleep(1)
 		else: await ctx.send('error starting server.'); return
@@ -48,11 +50,11 @@ class serverMcstarter(commands.Cog):
 	async def minecraft_info(self,ctx:SlashContext,server:str):
 		info = []
 		try:
-			for i in servers[server]:
+			for i in servers.read([server]):
 				if i=='directory' or i=='isModded' or i=='mods': continue
-				info.append(f'{i}: {servers[server][i]}')
+				info.append(f'{i}: {servers.read([server,i])}')
 		except: await ctx.send('server name error')
-		info.append('modpack: vanilla') if servers[server]['isModded']==False else info.append(f'modpack: https://mods.nutt.dev/{server}')
+		info.append('modpack: vanilla') if not servers.read([server,'isModded']) else info.append(f'modpack: https://mods.nutt.dev/{server}')
 		info.append(f'size: {serverMcstarter.getServerSize(server)}')
 		await ctx.send(embed=discord.Embed(title=f'{server} info:',description='\n'.join(info),color=0x69ff69))
 		logOutput(f'info about server {server} requested',ctx)
@@ -67,7 +69,7 @@ class serverMcstarter(commands.Cog):
 	async def list_servers(self,ctx:SlashContext): await ctx.send(embed=discord.Embed(title='Minecraft Servers:',description='\n'.join(servers),color=0x69ff69))
 	def getServerSize(server):
 		size = 0; sizeType = 0
-		for path, dirs, files in os.walk(servers[server]['directory']):
+		for path, dirs, files in os.walk(servers.read([server,'directory'])):
 			for f in files: fp = os.path.join(path, f); size += os.path.getsize(fp)
 		while size/1024 > 1: size = size/1024; sizeType += 1
 		return f'{round(size,3)} {sizes[sizeType]}'

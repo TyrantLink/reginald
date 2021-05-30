@@ -4,6 +4,8 @@ from datetime import datetime
 from discord.ext import commands
 from bot import client
 
+save = data.load('save')
+
 def setupLogger(name,log_file,level=logging.WARNING):
 	logger = logging.getLogger(name)
 	formatter = logging.Formatter('[%(asctime)s.%(msecs)03d] %(message)s','%d/%m/%Y %H:%M:%S')
@@ -12,7 +14,6 @@ def setupLogger(name,log_file,level=logging.WARNING):
 	logger.setLevel(level)
 	logger.addHandler(fileHandler)
 	return logger
-
 
 class msgLogger(commands.Cog):
 	def __init__(self,client): self.client = client
@@ -34,31 +35,31 @@ class msgLogger(commands.Cog):
 	async def on_message_edit(self,message_before,message_after):
 		await msgLogger.logMessages(message_before,'e',message_after,' - image or embed') if message_after.content == "" else await msgLogger.logMessages(message_before,'e',message_after)
 	def messageCount(author,guild=None):
-		if author in data.read(['variables','messages']): data.math('+',1,['variables','messages',author])
-		else: data.write(1,['variables','messages',author])
-		if guild != None and author not in data.read(['servers',guild,'activeMembers']) and data.read(['servers',guild,'config','enableTalkingStick']): data.action('append',author,['servers',guild,'activeMembers'])
+		if author in save.read(['variables','messages']): save.math('+',1,['variables','messages',author])
+		else: save.write(1,['variables','messages',author])
+		if guild != None and author not in save.read(['servers',guild,'activeMembers']) and save.read(['servers',guild,'config','enableTalkingStick']): save.action('append',author,['servers',guild,'activeMembers'])
 	async def logMessages(ctx,type,ctx2=None,ext=''):
 		try: guildID = ctx.guild.id
 		except: guildID = 'DMs'
 		match type:
 			case 's':
 				log=f'{ctx.author} sent "{ctx.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-				if data.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not data.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} sent "{ctx.content}"')
+				if save.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not save.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} sent "{ctx.content}"')
 				globals()[f'{guildID}_sent'].warning(log)
 			case 'd':
 				log=f'"{ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
-				if data.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not data.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} - "{ctx.content}" was deleted')
+				if save.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not save.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} - "{ctx.content}" was deleted')
 				globals()[f'{guildID}_delete'].warning(log)
 			case 'b':
 				log=f'"{ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
 				for attachment in ctx.attachments: await attachment.save(f'{os.getcwd()}\\fileCache\\{datetime.fromtimestamp(time()).strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
-				if data.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not data.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} - "{ctx.content}" was bulk deleted')
+				if save.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not save.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} - "{ctx.content}" was bulk deleted')
 				globals()[f'{guildID}_delete'].warning(log)
 			case 'e':
 				if ctx.content == ctx2.content: return
 				log=f'{ctx.author} edited "{ctx.content}" into "{ctx2.content}" in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-				if data.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not data.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} edited "{ctx.content}" into {ctx2.content}')
+				if save.read(['botConfig','msgToConsole']) and not (ctx.author.bot and not save.read(['botConfig','botToConsole'])): print(f'{ctx.author.name} edited "{ctx.content}" into {ctx2.content}')
 				globals()[f'{guildID}_edit'].warning(log)
 	def messageLoggers(guild):
 		while True:
