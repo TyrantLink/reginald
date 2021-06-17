@@ -52,7 +52,7 @@ class devTools(Cog):
 		if r'\n' in details: details = devTools.msgFormat(details)
 		channel = await self.client.fetch_channel(bot.read(['development','suggestions']))
 		message = await channel.send(embed=discord.Embed(title=f"{suggestion} | #{suggestCount}",description=f'suggested by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
-		for i in ['👍','👎']: await message.add_reaction(i)
+		for i in ['<:upvote:854594180339990528>','<:downvote:854594202439909376>']: await message.add_reaction(i)
 		bot.action('append',int(message.jump_url.split('/')[-1]),['suggestions'])
 		await ctx.send('thank you for your suggestion!')
 		logOutput(f'new suggestion "{suggestion}"',ctx)
@@ -65,7 +65,7 @@ class devTools(Cog):
 		if r'\n' in details: details = devTools.msgFormat(details)
 		channel = await self.client.fetch_channel(bot.read(['development','issues']))
 		message = await channel.send(embed=discord.Embed(title=f"{issue} | #{issueCount}",description=f'issue by: {ctx.author.mention}\n\ndetails:\n{details}',color=0x69ff69))
-		for i in ['👍','👎']: await message.add_reaction(i)
+		for i in ['<:upvote:854594180339990528>','<:downvote:854594202439909376>']: await message.add_reaction(i)
 		bot.action('append',int(message.jump_url.split('/')[-1]),['issues'])
 		await ctx.send('thank you for reporting this issue!')
 		logOutput(f'new issue "{issue}"',ctx)
@@ -94,9 +94,16 @@ class devTools(Cog):
 	@cog_ext.cog_subcommand(base='dev',name='test',description='test stuffs, I have no clue.')
 	@botOwner()
 	async def dev_test(self,ctx:SlashContext):
-		await ctx.send(f'congrats <@!250797109022818305>, you have the talking stick.',
-			embed=discord.Embed(
-				title='rolled out of:',
-				description=f'user1\nuser2\n<@!815769382629277746>\nuser4\n><@!250797109022818305><'))
+		await (
+			ctx.guild.get_channel(
+				servers.read(
+					[str(ctx.guild.id),'channels','talkingStick'])
+					)).send(f'congrats <@!urmom>, you have the talking stick.')
+	
+	@cog_ext.cog_subcommand(base='dev',name='clear_console',description='clears the console.')
+	async def dev_clear_console(self,ctx:SlashContext):
+		os.system('cls')
+		await ctx.send('successfully cleared console.')
+		logOutput('console cleared',ctx)
 
 def setup(client): client.add_cog(devTools(client))

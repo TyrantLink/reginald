@@ -21,30 +21,30 @@ class msgLogger(Cog):
 
 	@Cog.listener()
 	async def on_ready(self):
-		for guild in self.client.guilds: msgLogger.messageLoggers(guild.id)
-		msgLogger.messageLoggers('DMs')
+		for guild in self.client.guilds: msgLogger.messageLoggers(self,guild.id)
+		msgLogger.messageLoggers(self,'DMs')
 
 	@Cog.listener()
 	async def on_message(self,message):
 		if message.guild:
 			if str(message.guild.id) not in servers.read(): servers.new(str(message.guild.id))
-		await msgLogger.logMessages(message,'s',' - image or embed') if message.content == "" else await msgLogger.logMessages(message,'s')
-		try: msgLogger.messageCount(str(message.author.id), str(message.guild.id))
-		except AttributeError or discord.errors.NotFound: msgLogger.messageCount(str(message.author.id))
+		await msgLogger.logMessages(self,message,'s',' - image or embed') if message.content == "" else await msgLogger.logMessages(self,message,'s')
+		try: msgLogger.messageCount(self,str(message.author.id), str(message.guild.id))
+		except AttributeError or discord.errors.NotFound: msgLogger.messageCount(self,str(message.author.id))
 
 	@Cog.listener()
 	async def on_message_delete(self,message):
-		await msgLogger.logMessages(message,'d',' - image or embed') if message.content == "" else await msgLogger.logMessages(message,'d')
+		await msgLogger.logMessages(self,message,'d',' - image or embed') if message.content == "" else await msgLogger.logMessages(self,message,'d')
 
 	@Cog.listener()
 	async def on_bulk_message_delete(self,messages):
-		for message in messages: await msgLogger.logMessages(message,'b',' - image or embed') if message.content == "" else await msgLogger.logMessages(message,'b')
+		for message in messages: await msgLogger.logMessages(self,message,'b',' - image or embed') if message.content == "" else await msgLogger.logMessages(self,message,'b')
 	
 	@Cog.listener()
 	async def on_message_edit(self,message_before,message_after):
-		await msgLogger.logMessages(message_before,'e',message_after,' - image or embed') if message_after.content == "" else await msgLogger.logMessages(message_before,'e',message_after)
+		await msgLogger.logMessages(self,message_before,'e',message_after,' - image or embed') if message_after.content == "" else await msgLogger.logMessages(self,message_before,'e',message_after)
 
-	def messageCount(author,guild=None):
+	def messageCount(self,author,guild=None):
 		if author not in users.read([]): users.new(author)
 		users.math('+',1,[author,'messages'])
 		if guild != None:
@@ -53,7 +53,7 @@ class msgLogger(Cog):
 			servers.math('+',1,[guild,'messageLeaderboard',author])
 			if int(author) not in servers.read([guild,'activeMembers']): servers.action('append',int(author),[guild,'activeMembers'])
 
-	def messageLoggers(guild):
+	def messageLoggers(self,guild):
 		while True:
 			try:
 				globals()[f'{guild}_sent']=setupLogger(f'{guild}_sent',f'logs/messages/{guild}/sent.log')
@@ -62,7 +62,8 @@ class msgLogger(Cog):
 			except: mkdir(f'logs/messages/{guild}'); continue
 			break
 
-	async def logMessages(ctx,type,ctx2=None,ext=''):
+	async def logMessages(self,ctx,type,ctx2=None,ext=''):
+		if not self.client.is_ready(): return
 		try: guildID = ctx.guild.id
 		except: guildID = 'DMs'
 		match type:

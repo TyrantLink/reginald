@@ -20,6 +20,7 @@ class crypto(Cog):
 		except: await ctx.send('failed to fetch exchange rate',hidden=True); return
 		try: explorer = requests.get(explorers[currency]).json()['result']
 		except: await ctx.send('failed to fetch network hashrate',hidden=True); return
+		hashrate = float(hashrate); holdings = float(holdings)
 		response = [f'Your hashrate: {hashrate} MH/s',f'Your holdings: {holdings} Zano',f'Your USD: ${round(holdings*exchRate,3)}']
 		hashrate = hashrate*1000000
 		posDiff = int(explorer['pos_difficulty'])
@@ -44,7 +45,7 @@ class crypto(Cog):
 		logOutput(f'{currency} stats requested',ctx)
 	
 	@cog_ext.cog_subcommand(base='crypto',name='exchange',description='convert crypto to USD')
-	async def crypto_exchange(self,ctx:SlashContext,coin:str,amount:int):
+	async def crypto_exchange(self,ctx:SlashContext,coin:str,amount:int=1):
 		if '..' in coin: await ctx.send('invalid coin name.'); return
 		try: exchRate = float(requests.get(f'https://api.coingecko.com/api/v3/coins/{coin.lower()}').json()['market_data']['current_price']['usd'])
 		except: await ctx.send('failed to fetch exchange rate. is the coin name correct?',hidden=True); return

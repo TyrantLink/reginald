@@ -31,9 +31,10 @@ class config(Cog):
 		await ctx.send(f'successfully set {key} to {servers.read([str(ctx.guild.id),"config",key])}') # reads from file to confirm write
 		logOutput(f'{key} set to {value}',ctx)
 
-	@cog_ext.cog_slash(name='config',description='list config values')
+	@cog_ext.cog_subcommand(base='config',name='list',description='list config values')
 	@moderator()
-	async def config(self,ctx:SlashContext):
+	@guild_only()
+	async def config_list(self,ctx:SlashContext):
 		cfg = servers.read([str(ctx.guild.id),'config'])
 		await ctx.send(embed=discord.Embed(title='config',description='\n'.join([f'{i}: {cfg[i]}' for i in cfg]),color=bot.read(['config','embedColor'])))
 		logOutput('config requested',ctx)
@@ -49,14 +50,14 @@ class config(Cog):
 			try: value = int(value,16)
 			except: await ctx.send('value error.'); return # sends value error if value is not bool or hex int
 		try: 
-			if type(key) != type(bot.read(['config',key])): await ctx.send('type error.'); return # sends type error if key types are mismatched
+			if type(value) != type(bot.read(['config',key])): await ctx.send('type error.'); return # sends type error if key types are mismatched
 		except: await ctx.send('key error.'); return # sends key error if key does not exist in config file
 		# checks done
 		bot.write(value,['config',key])
 		await ctx.send(f'successfully set {key} to {bot.read(["config",key])}') # reads from file to confirm write
 		logOutput(f'bot {key} set to {value}',ctx)
 
-	@cog_ext.cog_subcommand(base='dev',name='config_list',description='list bot config')
+	@cog_ext.cog_subcommand(base='dev',subcommand_group='config',name='list',description='list bot config')
 	@botOwner()
 	async def dev_config_list(self,ctx:SlashContext):
 		cfg = bot.read(['config'])

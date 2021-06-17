@@ -46,13 +46,15 @@ class base(Cog):
 @client.event
 async def on_command_error(ctx,error): # run on legacy command error
 	await ctx.send('all commands have been ported to slash commands, type "/" to see a list of commands.')
-	raise(error) if bot.read(['config','raiseErrors']) else print(error)
+	if bot.read(['config','raiseErrors']): raise(error) # this didn't work as a one-line if, it would always raise.
+	else: print(error)
 
 @client.event
 async def on_slash_command_error(ctx:SlashContext,error): # run on slash command error
 	try: await ctx.send(str(error),hidden=True)
 	except: return # returns if error is blank
-	print(error.with_traceback) if bot.read(['config','raiseErrors']) else print(error) # raises error if raiseErrors is set to False
+	if bot.read(['config','raiseErrors']): raise(error) # this didn't work as a one-line if, it would always raise.
+	else: print(error)
 
 client.add_cog(base(client))
 for extension in extensions:

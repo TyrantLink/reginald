@@ -29,9 +29,10 @@ class qotd(Cog):
 			await sleep(59)
 			if datetime.now().strftime("%H:%M") == '09:00':
 				for guild in servers.read():
-					server = await self.client.fetch_guild(int(guild))
+					try: server = await self.client.fetch_guild(int(guild))
+					except: continue
 					if not servers.read([guild,'config','enableQOTD']): continue
 					if not servers.read([guild,'channels','qotd']): await server.owner.send(f'error in qotd. please redo setup in {server.name}.')
-					await server.get_channel(servers.read([guild,'channels','qotd'])).send(choice(questions))
+					await (await server.fetch_channel(servers.read([guild,'channels','qotd']))).send(embed=discord.Embed(title='❓❔ Question of the Day ❔❓',description=choice(questions),color=bot.read(['config','embedColor'])))
 
 def setup(client): client.add_cog(qotd(client))

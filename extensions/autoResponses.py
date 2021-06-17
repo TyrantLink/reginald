@@ -16,9 +16,9 @@ class autoResponses(Cog):
 	@Cog.listener()
 	async def on_message(self,ctx):
 		if ctx.guild:
-			try: guild = servers.read(['0'])
-			except: guild = servers.read([str(ctx.guild.id)])
-		else: guild = servers.read([str(ctx.guild.id)])
+			try: guild = servers.read([str(ctx.guild.id)])
+			except: guild = servers.read(['0'])
+		else: guild = servers.read(['0'])
 		if ctx.author.id in guild['ignore'] or ctx.author == self.client.user: return
 		if guild['config']['enableAutoResponses'] and not ctx.author.bot: await autoResponses.autoResponse(self,ctx)
 		if guild['config']['enableDadBot'] and not ctx.author.bot: await autoResponses.dadBot(self,ctx)

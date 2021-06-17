@@ -65,9 +65,9 @@ class load():
 		if isinstance(value,int): eval(f'self.file{path}.{action}({value})'); return True
 		return False
 
-	def math(self,operator:str,value:int|float,path:list,round:bool=False,roundVal:int=0):
+	def math(self,operator:str,value:int|float,path:list,roundNum:bool=False,roundVal:int=0):
 		path = "['" + "']['".join(path) + "']"
-		if round and isinstance(value,(int,float)): exec(f'self.file{path} = round(self.file{path}{operator}{value}'); return True
+		if roundNum and isinstance(value,(int,float)): exec(f'self.file{path} = round(self.file{path}{operator}{value},{roundVal})'); return True
 		if isinstance(value,(int,float)): exec(f'self.file{path} {operator}= {value}'); return True
 		return False
 	

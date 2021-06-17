@@ -28,10 +28,10 @@ class fun(Cog):
 		if str(activity_id) in cache: await ctx.send(f'[Click to Open {activity} in {ctx.author.voice.channel.name}](<https://discord.gg/{cache[str(activity_id)]}>)')
 		else:
 			invite = await ctx.author.voice.channel.create_invite(target_type=2,target_application_id=activity_id,reason=f'{activity} created in {ctx.channel.name}')
-			try: servers.write(invite.code,[str(ctx.guild.id),'activities',str(ctx.author.voice.channel.id),activity_id])
+			try: servers.write(invite.code,[str(ctx.guild.id),'activities',str(ctx.author.voice.channel.id),str(activity_id)])
 			except KeyError:
 				servers.write({},[str(ctx.guild.id),'activities',str(ctx.author.voice.channel.id)])
-				servers.write(invite.code,[str(ctx.guild.id),'activities',str(ctx.author.voice.channel.id),activity_id])
+				servers.write(invite.code,[str(ctx.guild.id),'activities',str(ctx.author.voice.channel.id),str(activity_id)])
 			await ctx.send(f'[Click to Open {activity} in {ctx.author.voice.channel.name}](<https://discord.gg/{invite.code}>)')
 		logOutput(f'{activity} invited',ctx)
 	
@@ -67,6 +67,7 @@ class fun(Cog):
 		logOutput(f'time requested',ctx)
 
 	@cog_ext.cog_slash(name='poll',description='run a poll.')
+	@moderator()
 	async def poll(self,ctx:SlashContext,title:str,description:str,optiona:str,optionb:str,optionc=None,optiond=None,other:discord.TextChannel=None):
 		options = ['🇦','🇧']
 		description = f'{description}\n\n🇦: {optiona}\n🇧: {optionb}'
@@ -78,7 +79,7 @@ class fun(Cog):
 		logOutput('poll created',ctx)
 
 	@cog_ext.cog_slash(name='8ball',description='ask the 8-ball a question.')
-	async def reginald_8ball(self,ctx:SlashContext,question:str):
+	async def eightball(self,ctx:SlashContext,question:str):
 		await ctx.send(choice(questions.read(['8ball'])))
 		logOutput('8ball rolled',ctx)
 
@@ -107,7 +108,7 @@ class fun(Cog):
 		options=[
 			create_option('url','e.g. example.com',str,True),
 			create_option('name','name of link',str,True),
-			create_option('path','reginald.nutt.dev/{path}, randomized if left empty',str,False)])
+			create_option('path','s.nutt.dev/{path}, randomized if left empty',str,False)])
 	async def shorten(self,ctx:SlashContext,url,name,path):
 		await ctx.defer()
 		url = sub(' ','',url)
