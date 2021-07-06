@@ -2,7 +2,7 @@ from codetiming import Timer
 startup = Timer(name='startup')
 startup.start()
 import os
-os.system('cls')
+os.system('clear')
 from dotenv import load_dotenv
 import data,discord
 from discord.ext.commands import Cog,Bot
@@ -11,7 +11,7 @@ from discord_slash import SlashContext,SlashCommand,cog_ext
 from discord_slash.utils.manage_commands import create_option
 
 load_dotenv()
-extensions = [f.split('.py')[0] for f in [i[2] for i in os.walk(f'{os.getcwd()}\\extensions')][0]]
+extensions = [f.split('.py')[0] for f in [i[2] for i in os.walk(f'{os.getcwd()}/extensions')][0] if not f.endswith('.disabled')]
 client = Bot('stoplookingatmysourcecode',help_command=None,intents=discord.Intents.all(),owner_id=250797109022818305)
 slash = SlashCommand(client,True)
 bot = data.load('bot')
@@ -19,7 +19,8 @@ bot = data.load('bot')
 class base(Cog):
 	@Cog.listener()
 	async def on_ready(self): # connected to discord and set presence
-		elapsedTime = round(startup.stop()*1000,3)
+		try: elapsedTime = round(startup.stop()*1000,3)
+		except: pass
 		outputLog.warning(f"{client.user.name} connected to Discord!")
 		print(f"{client.user.name} connected to Discord!\n")
 		await client.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='the collective one.'))
@@ -35,13 +36,21 @@ class base(Cog):
 		await ctx.send(f'successfully reloaded {extension} extension')
 		logOutput(f'reloaded {extension} extension',ctx)
 	
-	@cog_ext.cog_subcommand(base='extension',name='add',description='adds given extension')
-	async def extension_add(self,ctx:SlashContext,extension:str): # add an extension if the file did not exist on bot startup
+	@cog_ext.cog_subcommand(base='extension',name='load',description='loads given extension')
+	async def extension_load(self,ctx:SlashContext,extension:str): # loads an extension if the file did not exist on bot startup
 		await ctx.defer() # defers to allow loading times longer than 3 seconds
 		client.load_extension(f'extensions.{extension}')
-		await slash.sync_all_commands() # sync commands on extension add
-		await ctx.send(f'successfully reloaded {extension} extension')
-		logOutput(f'reloaded {extension} extension',ctx)
+		await slash.sync_all_commands() # sync commands on extension load
+		await ctx.send(f'successfully loaded {extension} extension')
+		logOutput(f'loaded {extension} extension',ctx)
+	
+	@cog_ext.cog_subcommand(base='extension',name='unload',description='loads given extension')
+	async def extension_unload(self,ctx:SlashContext,extension:str): # unloads an extension
+		await ctx.defer() # defers to allow loading times longer than 3 seconds
+		client.unload_extension(f'extensions.{extension}')
+		await slash.sync_all_commands() # sync commands on extension unload
+		await ctx.send(f'successfully unloaded {extension} extension')
+		logOutput(f'unloaded {extension} extension',ctx)
 
 @client.event
 async def on_command_error(ctx,error): # run on legacy command error
@@ -57,12 +66,13 @@ async def on_slash_command_error(ctx:SlashContext,error): # run on slash command
 	else: print(error)
 
 client.add_cog(base(client))
-for extension in extensions:
-	try: client.load_extension(f'extensions.{extension}'); continue
-	except Exception as error:
-		print(f'failed to load extension [{extension}]')
-		if bot.read(['config','raiseErrors']): raise(error) # this didn't work as a one-line if, it would always raise.
-		else: print(error)
+if bot.read(['config','extension_loading']):
+	for extension in extensions:
+		try: client.load_extension(f'extensions.{extension}'); continue
+		except Exception as error:
+			print(f'failed to load extension [{extension}]')
+			if bot.read(['config','raiseErrors']): raise(error) # this didn't work as a one-line if, it would always raise.
+			else: print(error)
 
 try: client.run(os.getenv('token'))
-finally: data.saveAll(); os.system('cls')
+finally: data.saveAll(); os.system('clear')

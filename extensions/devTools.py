@@ -1,6 +1,5 @@
 
-import os
-import discord,re,data
+import discord,re,data,os
 from logger import logOutput
 from discord.ext.commands import Cog
 from permission_utils import botOwner
@@ -9,6 +8,7 @@ from discord_slash.utils.manage_commands import create_option
 
 autoResponses = data.load('autoResponses')
 bot = data.load('bot')
+help = data.load('help')
 mcServers = data.load('mcServers')
 questions = data.load('questions')
 servers = data.load('servers')
@@ -83,7 +83,7 @@ class devTools(Cog):
 		logOutput('pinged',ctx)
 
 	@cog_ext.cog_subcommand(base='dev',name='fsave',description='force save all save files',
-		options=[create_option('file','save a specific file (saves all if left blank)',str,False,[f.split('.json')[0] for f in [i[2] for i in os.walk(f'{os.getcwd()}\\saves')][0]])])
+		options=[create_option('file','save a specific file (saves all if left blank)',str,False,[f.split('.json')[0] for f in [i[2] for i in os.walk(f'{os.getcwd()}/saves')][0]])])
 	@botOwner()
 	async def dev_fsave(self,ctx:SlashContext,file:str=None):
 		if not file: data.saveAll()
@@ -94,16 +94,30 @@ class devTools(Cog):
 	@cog_ext.cog_subcommand(base='dev',name='test',description='test stuffs, I have no clue.')
 	@botOwner()
 	async def dev_test(self,ctx:SlashContext):
-		await (
-			ctx.guild.get_channel(
-				servers.read(
-					[str(ctx.guild.id),'channels','talkingStick'])
-					)).send(f'congrats <@!urmom>, you have the talking stick.')
+		for i in self.client.guilds:
+			if i.id == 559830737889787924: break
+		await (i.get_channel(844123925226848276)).send('test')
 	
 	@cog_ext.cog_subcommand(base='dev',name='clear_console',description='clears the console.')
 	async def dev_clear_console(self,ctx:SlashContext):
-		os.system('cls')
+		os.system('clear')
 		await ctx.send('successfully cleared console.')
 		logOutput('console cleared',ctx)
+
+	@cog_ext.cog_subcommand(base='dev',name='reload_file',description='reload a save file',
+		options=[
+			create_option('file','file you want to reload',str,True,[f.split('.json')[0] for f in [i[2] for i in os.walk(f'{os.getcwd()}/saves')][0]]),
+			create_option('save','save the file first?',bool,False)])
+	async def dev_reload_file(self,ctx:SlashContext,file,save:bool=False):
+		if eval(f'{file}.reload({save})'): await ctx.send(f'successfully reloaded {file}')
+		else: await ctx.send(f'failed to reload {file}')
+		logOutput(f'reloaded {file}.json',ctx)
+
+	@cog_ext.cog_subcommand(base='dev',name='note',description='add a note to a file')
+	@botOwner()
+	async def dev_note(self,ctx:SlashContext,note):
+		with open('notes.txt','w+') as notes: notes.write(f'{note}\n')
+		await ctx.send('successfully saved note')
+		logOutput(f'note "{note}" saved',ctx)
 
 def setup(client): client.add_cog(devTools(client))

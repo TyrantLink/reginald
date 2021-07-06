@@ -30,7 +30,7 @@ defaultServer = {
 		"talkingStick": 0,
 		"birthdays": 0
 	},
-	"currentStik": 0}
+	"currentStick": 0}
 defaultUser = {
     "messages": 0,
     "birthday": None,
@@ -44,7 +44,13 @@ class load():
 			try: self.file = json.loads(open(f'saves/{filename}.json','r').read())
 			except: self.file = {} # sets load file to blank dictionary if file does not exist or load error occurs
 			loadedSaves[filename] = self.file
-	
+
+	def reload(self,save:bool=False):
+		if save: self.save()
+		try: loadedSaves[self.filename] = json.loads(open(f'saves/{self.filename}.json','r').read())
+		except: return False
+		return True
+
 	def save(self): json.dump(self.file,open(f'saves/{self.filename}.json','w+'),indent=2); return True
 
 	def read(self,path:list=[]):

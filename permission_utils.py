@@ -4,11 +4,11 @@ from discord.ext.commands import check
 bot = data.load('bot')
 owner_id = bot.read(['development','owner'])
 
-def administrator(): # checks if the user has the administrator permission
+def administrator(ctx=None): # checks if the user has the administrator permission
 	async def perms(ctx):
 		if ctx.author.id == owner_id or ctx.author.guild_permissions.administrator: return True
-		await ctx.send('You are not an admin.'); return False
-	return check(perms)
+		if not ctx: await ctx.send('You are not an admin.'); return False
+	return check(perms) if not ctx else perms(ctx)
 
 def moderator(): # checks if the user has the manage server permission
 	async def perms(ctx):

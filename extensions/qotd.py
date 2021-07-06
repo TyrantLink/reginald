@@ -26,13 +26,13 @@ class qotd(Cog):
 	async def loop(self):
 		await self.client.wait_until_ready()
 		while self.client.is_ready():
-			await sleep(59)
+			await sleep(60)
 			if datetime.now().strftime("%H:%M") == '09:00':
-				for guild in servers.read():
-					try: server = await self.client.fetch_guild(int(guild))
+				for guild in self.client.guilds:
+					try: server = servers.read([str(guild.id)])
 					except: continue
-					if not servers.read([guild,'config','enableQOTD']): continue
-					if not servers.read([guild,'channels','qotd']): await server.owner.send(f'error in qotd. please redo setup in {server.name}.')
-					await (await server.fetch_channel(servers.read([guild,'channels','qotd']))).send(embed=discord.Embed(title='❓❔ Question of the Day ❔❓',description=choice(questions),color=bot.read(['config','embedColor'])))
+					if not server['config']['enableQOTD']: continue
+					if not server['channels']['qotd']: await guild.owner.send(f'error in qotd. please redo setup in {guild.name}.')
+					await guild.get_channel(server['channels']['qotd']).send(embed=discord.Embed(title='❓❔ Question of the Day ❔❓',description=choice(questions),color=bot.read(['config','embedColor'])))
 
 def setup(client): client.add_cog(qotd(client))

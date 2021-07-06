@@ -1,5 +1,5 @@
 import discord,logging,data
-from os import mkdir,getcwd
+from os import makedirs,getcwd,path
 from datetime import datetime
 from discord.ext.commands import Cog
 
@@ -23,6 +23,10 @@ class msgLogger(Cog):
 	async def on_ready(self):
 		for guild in self.client.guilds: msgLogger.messageLoggers(self,guild.id)
 		msgLogger.messageLoggers(self,'DMs')
+
+	@Cog.listener()
+	async def on_guild_join(self,guild):
+		msgLogger.messageLoggers(self,guild.id)
 
 	@Cog.listener()
 	async def on_message(self,message):
@@ -59,7 +63,7 @@ class msgLogger(Cog):
 				globals()[f'{guild}_sent']=setupLogger(f'{guild}_sent',f'logs/messages/{guild}/sent.log')
 				globals()[f'{guild}_edit']=setupLogger(f'{guild}_edit',f'logs/messages/{guild}/edited.log')
 				globals()[f'{guild}_delete']=setupLogger(f'{guild}_delete',f'logs/messages/{guild}/deleted.log')
-			except: mkdir(f'logs/messages/{guild}'); continue
+			except: makedirs(f'logs/messages/{guild}'); continue
 			break
 
 	async def logMessages(self,ctx,type,ctx2=None,ext=''):
@@ -72,13 +76,21 @@ class msgLogger(Cog):
 				if bot.read(['config','msgToConsole']) and not (ctx.author.bot and not bot.read(['config','botmsgToConsole'])): print(f'{ctx.author.name} sent "{ctx.content}"')
 				globals()[f'{guildID}_sent'].warning(log)
 			case 'd':
-				log=f'"[{ctx.id}] {ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-				for attachment in ctx.attachments: await attachment.save(f'{getcwd()}\\fileCache\\{datetime.now().strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
+				log=f'[{ctx.id}] "{ctx.content}" by {ctx.author} was deleted in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
+				if len(ctx.attachments):
+					if not path.exists(f'logs/messages/{guildID}/files'): makedirs(f'logs/messages/{guildID}/files')
+					for attachment in ctx.attachments:
+						try: await attachment.save(f'logs/messages/{guildID}/files/{datetime.now().strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
+						except: print(f'failed to download deleted file in {ctx.guild.name}')
 				if bot.read(['config','msgToConsole']) and not (ctx.author.bot and not bot.read(['config','botmsgToConsole'])): print(f'{ctx.author.name} - "{ctx.content}" was deleted')
 				globals()[f'{guildID}_delete'].warning(log)
 			case 'b':
-				log=f'"[{ctx.id}] {ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
-				for attachment in ctx.attachments: await attachment.save(f'{getcwd()}\\fileCache\\{datetime.now().strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
+				log=f'[{ctx.id}] "{ctx.content}" by {ctx.author} was purged in {"" if ctx.guild == None else f"{ctx.guild} - "}{ctx.channel}{ext}'
+				if len(ctx.attachments):
+					if not path.exists(f'logs/messages/{guildID}/files'): makedirs(f'logs/messages/{guildID}/files')
+					for attachment in ctx.attachments:
+						try: await attachment.save(f'logs/messages/{guildID}/files/{datetime.now().strftime("%d.%m.%Y %H.%M.%S.%f")[:-4]}.{attachment.filename.split(".")[len(attachment.filename.split("."))-1]}',use_cached=True)
+						except: print(f'failed to download deleted file in {ctx.guild.name}')
 				if bot.read(['config','msgToConsole']) and not (ctx.author.bot and not bot.read(['config','botmsgToConsole'])): print(f'{ctx.author.name} - "{ctx.content}" was bulk deleted')
 				globals()[f'{guildID}_delete'].warning(log)
 			case 'e':
