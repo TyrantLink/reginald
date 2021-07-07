@@ -4,6 +4,7 @@ from discord.ext.commands import Cog
 
 bot = data.load('bot')
 servers = data.load('servers')
+users = data.load('users')
 qa = data.load('autoResponses')
 userqa = qa.read(['userqa'])
 godqa = qa.read(['godqa'])
@@ -19,7 +20,7 @@ class autoResponses(Cog):
 			try: guild = servers.read([str(ctx.guild.id)])
 			except: guild = servers.read(['0'])
 		else: guild = servers.read(['0'])
-		if ctx.author.id in guild['ignore'] or ctx.author == self.client.user: return
+		if ctx.author.id in guild['ignore'] or ctx.author == self.client.user or users.read([str(ctx.author.id),'config','ignored']): return
 		if guild['config']['enableAutoResponses'] and not ctx.author.bot: await autoResponses.autoResponse(self,ctx)
 		if guild['config']['enableDadBot'] and not ctx.author.bot: await autoResponses.dadBot(self,ctx)
 

@@ -34,7 +34,9 @@ defaultServer = {
 defaultUser = {
     "messages": 0,
     "birthday": None,
-    "ricePurityScore": None}
+    "ricePurityScore": None,
+		"config": {
+			"ignored": False}}
 
 class load():
 	def __init__(self,filename):

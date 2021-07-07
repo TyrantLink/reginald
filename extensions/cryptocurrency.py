@@ -60,7 +60,7 @@ class cryptocurrency(Cog):
 		summary = requests.get('http://127.0.0.1:4067/summary').json()
 		results = {
 			'pool':re.sub(r'stratum1\+tcp:\/\/|:\d{0,6}','',summary['active_pool']['url']),
-			'uptime':convert_time(summary['uptime']),
+			'uptime':convert_time(summary['uptime'],'full_str'),
 			'hashrate':f'{round(summary["hashrate"]/1000000,3)} MH/s',
 			'average hashrate (day)':f'{round(summary["hashrate_day"]/1000000,3)} MH/s',
 			'average hashrate (hour)':f'{round(summary["hashrate_hour"]/1000000,3)} MH/s',
