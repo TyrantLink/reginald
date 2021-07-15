@@ -1,7 +1,6 @@
 import data,discord,os
 from time import time
 from asyncio import sleep
-from datetime import datetime
 from dotenv import load_dotenv
 from tyrantLib import convert_time
 from logger import logOutput,outputLog
@@ -54,12 +53,12 @@ class base(Cog):
 		await slash.sync_all_commands() # sync commands on extension unload
 		await ctx.send(f'successfully unloaded {extension} extension')
 		logOutput(f'unloaded {extension} extension',ctx)
-	
+
 async def uptime():
 	await client.wait_until_ready()
 	while client.is_ready():
-		await sleep(5)
-		await client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening,name=f'uptime: {convert_time(round(time()-st),"str")}'))
+		await sleep(60)
+		await client.change_presence(activity=discord.Activity(type=discord.ActivityType.listening,name=f'uptime: {convert_time(round(time()-st),"str")[:-3]}'))
 
 @client.event
 async def on_command_error(ctx,error): # run on legacy command error

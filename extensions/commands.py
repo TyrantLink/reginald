@@ -32,7 +32,7 @@ class cmds(Cog):
 			if users.read([str(user.id),'birthday']): description.append(f"birthday: {users.read([str(user.id),'birthday'])}")
 			if users.read([str(user.id),'ricePurityScore']): description.append(f"rice purity score: hidden" if users.read([str(user.id),'ricePurityScore']).startswith('h') else f"rice purity score: {users.read(user.id,['ricePurityScore'])}")
 		embed = discord.Embed(title=f'{user.name}\'s profile',description=f'id: {user.id}\nname: {user.name}\ndiscriminator: {user.discriminator}',color=bot.read(['config','embedColor']))
-		embed.set_thumbnail(url=user.avatar.with_format('png').with_size(512).url) # sets thumbnail to user avatar
+		embed.set_thumbnail(url=user.avatar_url_as(format='png',size=512)) # sets thumbnail to user avatar
 		embed.add_field(name='information:',value='\n'.join(description))
 		await ctx.send(embed=embed)
 		logOutput(f'profile of {user.name} requested',ctx)
@@ -77,9 +77,8 @@ class cmds(Cog):
 		await ctx.send(embed=discord.Embed(title='Message Leaderboard:',description='\n'.join(names),color=bot.read(['config','embedColor'])))
 		logOutput(f'message leaderboard requested',ctx)
 
-	# readthedocs is pain, I'll figure it out when I'm not asleep.
-	# @cog_ext.cog_slash(name='help',description='detailed help on reginald commands')
-	# async def help(self,ctx:SlashContext):
-	# 	await ctx.send('[Reginald Docs](<https://reginald.readthedocs.io/en/latest/>)')
+	@cog_ext.cog_slash(name='help',description='get the help page')
+	async def help(self,ctx:SlashContext):
+		await ctx.send('[Reginald Commands](<https://github.com/TyrantLink/reginald/wiki/commands>)')
 
 def setup(client): client.add_cog(cmds(client))

@@ -1,15 +1,23 @@
 import discord,requests,re,data
+from time import time
+from asyncio import sleep
 from logger import logOutput
 from tyrantLib import convert_time
 from discord.ext.commands import Cog
-from discord_slash import cog_ext,SlashContext
 from permission_utils import botOwner
+from discord_slash import cog_ext,SlashContext
 from discord_slash.utils.manage_commands import create_option
 
 explorers = {'zano':'https://explorer.zano.org/api/get_info/4294967295'}
 bot = data.load('bot')
+miner_pause_time = 0
 
 class cryptocurrency(Cog):
+	def __init__(self,client):
+		self.client = client
+		client.loop.create_task(cryptocurrency.mining_loop(self))
+
+
 	@cog_ext.cog_subcommand(base='crypto',name='calculate',description='calculate crypto',
 		options=[
 			create_option('currency','full name of crypto',str,True,['zano']),
@@ -73,7 +81,10 @@ class cryptocurrency(Cog):
 	@cog_ext.cog_subcommand(base='crypto',subcommand_group='miner',name='pause',description='pause the miner')
 	@botOwner()
 	async def crypto_miner_pause(self,ctx:SlashContext):
-		if requests.get('http://127.0.0.1:4067/control?pause=true').status_code == 200: await ctx.send('successfully paused miner'); return
+		if requests.get('http://127.0.0.1:4067/control?pause=true').status_code == 200:
+			await ctx.send('successfully paused miner')
+			globals()['miner_pause_time'] = time()
+			return
 		await ctx.send('failed to pause miner')
 	
 	@cog_ext.cog_subcommand(base='crypto',subcommand_group='miner',name='unpause',description='pause the miner')
@@ -81,5 +92,14 @@ class cryptocurrency(Cog):
 	async def crypto_miner_unpause(self,ctx:SlashContext):
 		if requests.get('http://127.0.0.1:4067/control?pause=false').status_code == 200: await ctx.send('successfully unpaused miner'); return
 		await ctx.send('failed to unpause miner')
+
+
+	async def mining_loop(self):
+		global miner_pause_time
+		await self.client.wait_until_ready()
+		while self.client.is_ready():
+			await sleep(600)
+			if requests.get('http://127.0.0.1:4067/summary').json()['paused'] and miner_pause_time != 0:
+				await self.client.get_user(int(bot.read(['development','owner']))).send(f'the miner has been paused for {convert_time(time()-miner_pause_time,"full_str")}.\nremember to start the miner when you\'re ready')
 
 def setup(client): client.add_cog(cryptocurrency(client))

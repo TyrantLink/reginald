@@ -148,8 +148,7 @@ class minecraft(Cog):
 			create_option('ip','server ip or hostname',str,True),
 			create_option('version','minecraft version',str,True),
 			create_option('modpack','name of modpack (vanilla if left empty)',str,False),
-			create_option('modpack_url','url to download modpack (required if using modpack)',str,False)
-		])
+			create_option('modpack_url','url to download modpack (required if using modpack)',str,False)])
 	@moderator()
 	async def minecraft_add_server(self,ctx:SlashContext,name,ip,version,modpack=None,modpack_url=None):
 		if name in servers.read([str(ctx.guild.id),'mcservers']): await ctx.send('a server already has that name!'); return

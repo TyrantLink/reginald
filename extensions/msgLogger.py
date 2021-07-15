@@ -55,7 +55,7 @@ class msgLogger(Cog):
 			try: servers.read([guild,'messageLeaderboard',author])
 			except: servers.write(0,[guild,'messageLeaderboard',author])
 			servers.math('+',1,[guild,'messageLeaderboard',author])
-			if int(author) not in servers.read([guild,'activeMembers']): servers.action('append',int(author),[guild,'activeMembers'])
+			if int(author) not in servers.read([guild,'activeMembers']) and author not in servers.read([guild,'ignore']): servers.action('append',int(author),[guild,'activeMembers'])
 
 	def messageLoggers(self,guild):
 		while True:

@@ -57,8 +57,13 @@ class load():
 
 	def read(self,path:list=[]):
 		if path == []: return self.file
-		res = self.file[path[0]]
-		for i in [p for p in path if p != path[0]]: res = res[i]
+		try:
+			res = self.file[path[0]]
+			for i in [p for p in path if p != path[0]]: res = res[i]
+		except KeyError as key:
+			load.new(self,str(key)[1:-1])
+			res = self.file[path[0]]
+			for i in [p for p in path if p != path[0]]: res = res[i]
 		return res
 
 	def write(self,value:Any,path:list):
@@ -81,5 +86,6 @@ class load():
 	
 	def new(self,id):
 		match self.filename:
-			case 'servers': self.file.update({str(id):defaultServer})
-			case 'users': self.file.update({str(id):defaultUser})
+			case 'servers': self.file.update({id:defaultServer}); return True
+			case 'users': self.file.update({id:defaultUser}); return True
+			case _: return 'unknown filename'

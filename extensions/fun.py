@@ -83,7 +83,10 @@ class fun(Cog):
 		await ctx.send(choice(questions.read(['8ball'])))
 		logOutput('8ball rolled',ctx)
 
-	@cog_ext.cog_slash(name='timer',description='start a timer',options=[create_option('label','timer label',str,True),create_option('time','amount of time',int,True),create_option('unit','unit of time',str,True,['second(s)','minute(s)','hour(s)'])])
+	@cog_ext.cog_slash(name='timer',description='start a timer',options=[
+		create_option('label','timer label',str,True),
+		create_option('time','amount of time',int,True),
+		create_option('unit','unit of time',str,True,['second(s)','minute(s)','hour(s)'])])
 	async def timer(self,ctx:SlashContext,label:str,time:int,unit:str):
 		match unit:
 			case 'second(s)': rtime = time

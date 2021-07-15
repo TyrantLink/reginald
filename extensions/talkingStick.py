@@ -28,7 +28,7 @@ class talkingStick(Cog):
 	async def stick_reroll(self,ctx:SlashContext):
 		await ctx.defer()
 		if not servers.read([str(ctx.guild.id),'config','enableTalkingStick']): await ctx.send(f'the talking stick is not enabled on this server, enable it with /config'); return
-		await talkingStick.rollTalkingStick(self,str(ctx.guild.id))
+		await talkingStick.rollTalkingStick(self,ctx.guild)
 		await ctx.send('reroll successful.')
 		logOutput(f'talking stick reroll',ctx)
 
@@ -62,8 +62,11 @@ class talkingStick(Cog):
 	async def rollTalkingStick(self,guild):
 		role = discord.Object(servers.read([str(guild.id),'roles','talkingStick'])) # get tsRole
 		activeMembers = servers.read([str(guild.id),'activeMembers']) # get list of active members
-		while True: # loop until valid 
-			rand = choice(activeMembers) # get random active user.
+		tries = 0
+		while True: # loop until valid
+			tries += 1
+			try: rand = choice(activeMembers) # get random active user.
+			except: continue
 			if rand in servers.read([str(guild.id),'ignore']): continue # resets loop if random user is in ignore list.
 			try: oldStik = await guild.fetch_member(servers.read([str(guild.id),'currentStick'])) # gets old stick holder as member object
 			except discord.errors.NotFound or KeyError: oldStik = None # sets oldStik to none if first roll of talking stick
@@ -85,7 +88,7 @@ class talkingStick(Cog):
 		except KeyError: servers.write(0,[str(guild.id),'tsLeaderboard',str(rand)]) # adds user to stick leaderboard if they aren't on it
 		servers.math('+',1,[str(guild.id),'tsLeaderboard',str(rand)]) # add one to leaderboard
 		servers.write([],[str(guild.id),'activeMembers']) # resets active members
-		log = f'stick rerolled to {newStik.name} in {guild.name}'
+		log = f'stick rerolled to {newStik.name} in {guild.name} ({tries} tries)'
 		outputLog.warning(log)
 		if bot.read(['config','stickToConsole']): print(log) # logs to console if config is enabled
 

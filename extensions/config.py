@@ -23,7 +23,7 @@ class config(Cog):
 		else:
 			try: value = int(value)
 			except: await ctx.send('value error.'); return # sends value error if value is not bool or int
-			if key == 'maxRoll' and value > 32768: await ctx.send('maxRoll cannot be higher than 32768!'); return # checks if int is too high for maxRolls
+			if key == 'maxRoll' and value > 32768 or value < 0: await ctx.send('maxRoll cannot be higher than 32768 or lower than 0!'); return # checks if int is too high for maxRolls
 		try: 
 			if type(value) != type(servers.read([str(ctx.guild.id),'config',key])): await ctx.send('type error.'); return # sends type error if key types are mismatched
 		except: await ctx.send('key error.'); return # sends key error if key does not exist in config file

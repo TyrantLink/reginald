@@ -22,6 +22,6 @@ def convert_time(seconds,format='list'):
   #return f'{days} days, {hours} hours, {minutes} minutes, {seconds} seconds'
   match format:
     case 'list': return [seconds,minutes,hours,days]
-    case 'full_str': return f'{days} days, {hours} hours, {minutes} minutes, {seconds} seconds'
+    case 'full_str': return f'{days} {"day" if days == 1 else "days"}, {hours} hours, {minutes} minutes, {seconds} seconds'
     case 'str': return f'{days} {"day" if days == 1 else "days"}, {str(hours).zfill(2)}:{str(minutes).zfill(2)}:{str(seconds).zfill(2)}'
     case _: return 'unknown format'

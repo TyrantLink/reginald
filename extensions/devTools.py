@@ -70,9 +70,9 @@ class devTools(Cog):
 		await ctx.send('thank you for reporting this issue!')
 		logOutput(f'new issue "{issue}"',ctx)
 
-	@cog_ext.cog_subcommand(base='clear',name='idCache',description='clear the idCache variable')
+	@cog_ext.cog_subcommand(base='clear',name='id_cache',description='clear the idCache variable')
 	@botOwner()
-	async def clear_idCache(self,ctx:SlashContext):
+	async def clear_id_cache(self,ctx:SlashContext):
 		bot.write({},['idCache'])
 		await ctx.send('successfully cleared idCache')
 		logOutput('idCache cleared',ctx)
@@ -94,9 +94,12 @@ class devTools(Cog):
 	@cog_ext.cog_subcommand(base='dev',name='test',description='test stuffs, I have no clue.')
 	@botOwner()
 	async def dev_test(self,ctx:SlashContext):
-		for i in self.client.guilds:
-			if i.id == 559830737889787924: break
-		await (i.get_channel(844123925226848276)).send('test')
+		await ctx.defer()
+		for user in users.read():
+			try: users.write(self.client.get_user(int(user)).name,[user,'name'])
+			except: continue
+			print(f'added {user} - {self.client.get_user(int(user)).name}')
+		await ctx.send('done')
 	
 	@cog_ext.cog_subcommand(base='dev',name='clear_console',description='clears the console.')
 	async def dev_clear_console(self,ctx:SlashContext):

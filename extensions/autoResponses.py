@@ -49,4 +49,6 @@ class autoResponses(Cog):
 		try: await ctx.channel.send(re.sub('  ',' ',f'hi {resString}, {splitter} {ctx.guild.me.name}'))
 		except: await ctx.channel.send(re.sub('  ',' ',f'hi {resString[:1941]} (character limit), {splitter} {ctx.guild.me.name}'))
 
+		async def test(self,pp:discord.TextChannel): pass
+
 def setup(client): client.add_cog(autoResponses(client))
